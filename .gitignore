@@ -1,0 +1,10 @@
+#IDE miscellanea
+.idea/*
+CMakeLists.txt
+dockDockBuildParams.json
+
+#Objects and executables
+build/*
+
+#Debug files
+*.dSYM/
