@@ -3,6 +3,9 @@
 CMakeLists.txt
 dockDockBuildParams.json
 
+#Mac miscellanea
+.DS_Store
+
 #Objects and executables
 build/*
 

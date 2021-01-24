@@ -6,10 +6,9 @@ SRC_DIRS := .
 
 SRCS := $(shell find $(SRC_DIRS) -name '*.c')
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
-CFLAGS := -std=c11 -O2 -Wno-deprecated -Wall -Wextra -pedantic -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wunreachable-code -Wfloat-equal -lncurses -D_XOPEN_SOURCE=500
+CFLAGS := -std=c11 -O2 -Wno-deprecated -Wall -Wextra -pedantic -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wunreachable-code -Wfloat-equal -lncurses -D_XOPEN_SOURCE=500 -g
 LDFLAGS := -lrt -lpthread
 VFLAGS := --leak-check=full --track-fds=yes
-
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
 	@echo "\033[1;34mFinal compilition:\033[0;37m"
@@ -23,7 +22,10 @@ $(BUILD_DIR)/%.c.o: %.c
 	@echo "\033[1;33mCompleted.\n" "\033[0;37m"
 
 run:
-	@./$(BUILD_DIR)/$(TARGET_EXEC)
+	./$(BUILD_DIR)/$(TARGET_EXEC)
+
+bug:
+	gdb ./$(BUILD_DIR)/$(TARGET_EXEC)
 
 val:
 	@valgrind $(VFLAGS) ./$(BUILD_DIR)/$(TARGET_EXEC)
