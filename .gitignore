@@ -2,6 +2,8 @@
 .idea/*
 CMakeLists.txt
 dockDockBuildParams.json
+.vscode/*
+cmake-build-debug/*
 
 #Mac miscellanea
 .DS_Store
