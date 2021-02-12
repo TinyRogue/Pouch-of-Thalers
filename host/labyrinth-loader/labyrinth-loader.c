@@ -35,7 +35,7 @@ static int line_len(FILE * const file) {
 static labyrinth_t* allocate_lbrth_mem(FILE * const file) {
     labyrinth_t *lbrth = (labyrinth_t*)calloc(1, sizeof(labyrinth_t));
     if (!lbrth) {
-        strerror(errno);
+        printf("%s\n", strerror(errno));
         return NULL;
     }
 
@@ -44,14 +44,14 @@ static labyrinth_t* allocate_lbrth_mem(FILE * const file) {
 
     lbrth->lbrth = (field_t**)calloc(sizeof(field_t*), lbrth->height + 1);
     if (!lbrth->lbrth) {
-        strerror(errno);
+        printf("%s\n", strerror(errno));
         return NULL;
     }
 
-    for (int i = 0; i < lbrth->height; ++i) {
+    for (size_t i = 0; i < lbrth->height; ++i) {
         *(lbrth->lbrth + i) = (field_t*)calloc(sizeof(field_t), lbrth->width + 1);
         if (!*(lbrth->lbrth + i)) {
-            for (int j = 0; j < i; ++j) {
+            for (size_t j = 0; j < i; ++j) {
                 free(*(lbrth->lbrth + j));
                 free(lbrth->lbrth);
                 return NULL;
@@ -67,24 +67,25 @@ static bool parse_labyrinth(FILE * const file, labyrinth_t * const lbrth) {
 
     if (!file) {
         errno = EINVAL;
-        strerror(errno);
+        printf("%s\n", strerror(errno));
         return false;
     }
 
     char *buffer = (char*)calloc(sizeof(char), lbrth->width + 1);
     if (!buffer) {
-        strerror(errno);
+        printf("%s\n", strerror(errno));
         return false;
     }
 
-    for (int i = 0; i < lbrth->height; ++i) {
-        if (fread(buffer, sizeof(char), lbrth->width, file) != lbrth->width) {
+    const int new_line = sizeof(char);
+    for (size_t i = 0; i < lbrth->height; ++i) {
+        if (fread(buffer, sizeof(char), lbrth->width + new_line, file) != lbrth->width + new_line) {
             perror("Wrong file format!\n");
             free(buffer);
             return false;
         }
-
-        for (int j = 0; j < lbrth->width; ++j) {
+        
+        for (size_t j = 0; j < lbrth->width; ++j) {
             switch (*(buffer + j)) {
             
             case '#':
@@ -135,21 +136,21 @@ labyrinth_t *get_labyrinth_from_file(const char * const filename) {
 
     FILE *file = fopen(filename, "r");
     if (!file) {
-        strerror(errno);
+        printf("%s\n", strerror(errno));
         perror("Couldn't open file\n");
         return NULL;
     }
 
     int file_len = file_size(file);
     if (-1 == file_len) {
-        strerror(errno);
+        printf("%s\n", strerror(errno));
         fclose(file);
         return NULL;
     }
     
     labyrinth_t *lbrth = allocate_lbrth_mem(file);
     if (!lbrth) {
-        strerror(errno);
+        printf("%s\n", strerror(errno));
         return NULL;
     }
 
@@ -168,7 +169,7 @@ void destroy_labyrinth(labyrinth_t *lbrth) {
     
     if (!lbrth) {
         errno = EINVAL;
-        strerror(errno);
+        printf("%s\n", strerror(errno));
         return;
     }
 
