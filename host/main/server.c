@@ -393,7 +393,7 @@ static void *print_map_on_event(void *ignored) {
 //---------------------------------------------------------------------------------------------
 
 
-bool initialize(const char* const filename) {
+bool initialise(const char* const filename) {
     srand(time(NULL));
     //* game_t vars initialisation section
     game.current_round = 0;

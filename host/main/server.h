@@ -10,7 +10,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include "../labyrinth-loader/labyrinth-loader.h"
-#include "../view/view.h"
+#include "../../utils/view/view.h"
 #include "../../utils/shared_data.h"
 
 #define PLAYER_SIGHT 3  //* <-- Override for sake of safety
@@ -48,7 +48,7 @@ typedef struct {
 } game_t;
 
 
-bool initialize(const char* const filename);
+bool initialise(const char* const filename);
 void clean_up();
 
 #endif //GOGGLE_EYED_APPROACH_SERVER_H
