@@ -23,8 +23,11 @@ typedef struct {
     struct server_side_info_t {
         int spawn_pos_x;
         int spawn_pos_y;
+        int curr_x;
+        int curr_y;
         int carried_treasure;
         int brought_treasure;
+        int deaths;
         bool is_slowed_down;
         char shm_name[40];
         

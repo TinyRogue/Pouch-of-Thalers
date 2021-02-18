@@ -67,6 +67,7 @@ static bool fill_server_side_info(comms_t *comms, int current_slot) {
 
     game.player_exchange[current_slot].server_side_info.brought_treasure = 0;
     game.player_exchange[current_slot].server_side_info.carried_treasure = 0;
+    game.player_exchange[current_slot].server_side_info.deaths = 0;
     game.player_exchange[current_slot].server_side_info.is_slot_taken = true;
     game.player_exchange[current_slot].server_side_info.is_slowed_down = false;
     
@@ -77,6 +78,9 @@ static bool fill_server_side_info(comms_t *comms, int current_slot) {
         sem_post(comms->host_response_sem);
         return false;
     }
+
+    game.player_exchange[current_slot].server_side_info.curr_x = game.player_exchange[current_slot].server_side_info.spawn_pos_x;
+    game.player_exchange[current_slot].server_side_info.curr_y = game.player_exchange[current_slot].server_side_info.spawn_pos_y;
     return true;
 }
 
@@ -124,6 +128,7 @@ static void fill_shared_info(int current_slot) {
 
     game.player_exchange[current_slot].shared_info->brought_treasure = 0;
     game.player_exchange[current_slot].shared_info->carried_treasure = 0;
+    game.player_exchange[current_slot].shared_info->deaths = 0;
     game.player_exchange[current_slot].shared_info->current_round = game.current_round;
     game.player_exchange[current_slot].shared_info->host_pid = game.host_pid;
     game.player_exchange[current_slot].shared_info->pos_x = game.player_exchange[current_slot].server_side_info.spawn_pos_x;
@@ -174,16 +179,21 @@ static void *player_listener_handler(void *comm_sems) {
         if (!tarry_for_player(comms)) {
             return NULL;
         }
+        log_message("New willing player has appeared!");
 
+        
         pthread_mutex_lock(&player_listener_mut);
         
         if (!accept_communication(comms)) {
+            log_message("Communication not accepted.");
             pthread_mutex_unlock(&player_listener_mut);
             continue;
         }
 
+        log_message("Looking for free slot...");
         current_slot = find_free_slot();
         if (FREE_SLOT_UNAVAILABLE ==  current_slot) {
+            log_message("No free slot available. Rejecting.");
             strncpy(comms->comm_shm->additional_info, "No slot available.", ADDITIONAL_INFO_SIZE - 1);
             comms->comm_shm->can_join = false;
             sem_post(comms->host_response_sem);
@@ -191,12 +201,15 @@ static void *player_listener_handler(void *comm_sems) {
             continue;
         }
 
+        log_message("Slot found!");
         if (!fill_server_side_info(comms, current_slot)) {
+            log_message("Could not fill server side info. Rejecting.");
             pthread_mutex_unlock(&player_listener_mut);
             continue;
         }
 
         if (!open_player_shm(comms, current_slot)) {
+            log_message("Could not open player shm. Rejecting.");
             pthread_mutex_unlock(&player_listener_mut);
             continue;
         }
@@ -204,6 +217,7 @@ static void *player_listener_handler(void *comm_sems) {
         fill_shared_info(current_slot);
 
         if (!open_shared_sems(comms, current_slot)) {
+            log_message("Could not open shared semaphores. Rejecting.");
             pthread_mutex_unlock(&player_listener_mut);
             continue;
         }
@@ -212,7 +226,9 @@ static void *player_listener_handler(void *comm_sems) {
         strncpy(comms->comm_shm->additional_info, "Successful connection!", ADDITIONAL_INFO_SIZE - 1);
         sem_post(comms->host_response_sem);
 
+        log_message("New player appeared in game!");
         pthread_mutex_unlock(&player_listener_mut);
+        sem_post(game.print_map_invoker);
     }
 
     return NULL;
@@ -273,18 +289,28 @@ static bool open_player_listener() {
 }
 //---------------------------------------------------------------------------------------------
 //--- Print section ---------------------------------------------------------------------------
-//TODO: implement
-static void print_players() {
-    
+static void print_info() {
+    char res_server_PID[30] = {"Server's process ID:"};
+    char server_PID[10];
+    sprintf(server_PID, "%lu", game.host_pid);
+
+    print(strcat(res_server_PID, server_PID), 1, game.lbrth->width + 3 + strlen("PARAMETER") + (strlen("Player") + 10) * 2);
+    print("PARAMETER:", 2, game.lbrth->width + 3);
+    print("PID:", 3, game.lbrth->width + 3);
+    print("Curr X/Y:", 4, game.lbrth->width + 3);
+    print("Deaths:", 5, game.lbrth->width + 3);
+    print("Player 1", 2, game.lbrth->width + 3 + strlen("PARAMETER") + (strlen("Player") + 10));
+    print("Player 2", 2, game.lbrth->width + 3 + strlen("PARAMETER") + (strlen("Player") + 10) * 2);
+    print("Player 3", 2, game.lbrth->width + 3 + strlen("PARAMETER") + (strlen("Player") + 10) * 3);
+    print("Player 4", 2, game.lbrth->width + 3 + strlen("PARAMETER") + (strlen("Player") + 10) * 4);
+    print("Coins", 7, game.lbrth->width + 3);
+    print("Carried", 8, game.lbrth->width + 5);
+    print("Brought", 9, game.lbrth->width + 5);
+    print("Current round: ", 11, game.lbrth->width + 3);
 }
 
-//TODO: implement
-static void print_beats() {
-
-}
 
 static void print_map() {
-
     for (size_t i = 0; i < game.lbrth->height; ++i) {
         for (size_t j = 0; j < game.lbrth->width; ++j) {
             print_field(game.lbrth->lbrth[i][j].kind, i, j);
@@ -292,6 +318,50 @@ static void print_map() {
     }
 }
 
+
+static void print_current_round() {
+    char round[10];
+    sprintf(round, "%lu", game.current_round);
+    print(round, 11, game.lbrth->width + 3 + strlen("Current round: "));
+}
+
+
+static void print_players() {
+
+    char curr_loc[10], deaths[10], coins[10], player_number[2];
+
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        unsigned short x_pos = game.lbrth->width + 3 + strlen("PARAMETER") + (strlen("Player") + 10) * (i + 1) + strlen("-----") / 2;
+
+        if (game.player_exchange[i].server_side_info.is_slot_taken) {
+            sprintf(player_number, "%d", i + 1);
+            print_coloured(player_number, PLAYER_COLOUR, game.player_exchange[i].server_side_info.curr_y, game.player_exchange[i].server_side_info.curr_x);
+            
+            sprintf(curr_loc, "%02d/%02d", game.player_exchange[i].server_side_info.curr_x, game.player_exchange[i].server_side_info.curr_y);
+            print(curr_loc, 4, x_pos);
+
+            sprintf(deaths, "%03d", game.player_exchange[i].server_side_info.deaths);
+            print(deaths, 5, x_pos);
+
+            sprintf(coins, "%04d", game.player_exchange[i].server_side_info.carried_treasure);
+            print(coins, 8, x_pos);
+
+            sprintf(coins, "%04d", game.player_exchange[i].server_side_info.brought_treasure);
+            print(coins, 9, x_pos);
+        } else {
+            print ("-----", 3, x_pos);
+            print ("--/--", 4, x_pos);
+            print ("-", 5, x_pos + 2);
+            print("-", 8, x_pos + 2);
+            print("-", 9, x_pos + 2);
+        }
+    }
+}
+
+// //TODO: implement
+// static void print_beats() {
+
+// }
 
 static void *print_map_on_event(void *ignored) {
     pthread_mutex_t printer_mut;
@@ -301,7 +371,9 @@ static void *print_map_on_event(void *ignored) {
         return NULL;
     }
     init_screen();
-    
+    print_legend(game.lbrth->height - 9, game.lbrth->width + 1);
+    print_info();
+
     while (true) {
         if (-1 == sem_wait(game.print_map_invoker)) {
             printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
@@ -310,6 +382,8 @@ static void *print_map_on_event(void *ignored) {
 
         pthread_mutex_lock(&printer_mut);
         print_map();
+        print_current_round();
+        print_players();
         pthread_mutex_unlock(&printer_mut);
     }
 
@@ -347,6 +421,7 @@ bool initialize(const char* const filename) {
     game.print_map_invoker = sem_open(MAP_PRNTR_SEM, O_CREAT | O_EXCL, 0666, 1);
     if (SEM_FAILED == game.print_map_invoker) {
         printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
+        destroy_labyrinth(game.lbrth);
         pthread_mutex_destroy(&game.general_lock);
         return false;
     }
@@ -355,13 +430,21 @@ bool initialize(const char* const filename) {
     if (pthread_create(&printer_thrd, NULL, print_map_on_event, NULL)) {
         printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
         pthread_mutex_destroy(&game.general_lock);
+        destroy_labyrinth(game.lbrth);
         sem_unlink(MAP_PRNTR_SEM);
         return false;
+    }
+
+    if (!init_logger(game.lbrth->height - 9, game.lbrth->width + 1 + 36, 9, 120)) {
+        pthread_mutex_destroy(&game.general_lock);
+        destroy_labyrinth(game.lbrth);
+        sem_unlink(MAP_PRNTR_SEM);
     }
 
     //* Player listener section
     if (false == open_player_listener()) {
         pthread_mutex_destroy(&game.general_lock);
+        destroy_labyrinth(game.lbrth);
         sem_unlink(MAP_PRNTR_SEM);
         return false;
     }
@@ -375,8 +458,10 @@ bool initialize(const char* const filename) {
 void clean_up() {
     endwin();
     pthread_mutex_destroy(&game.general_lock);
+    destroy_labyrinth(game.lbrth);
     sem_unlink(MAP_PRNTR_SEM);
     sem_unlink(PLAYER_LISTNER_SEM);
     sem_unlink(HOST_LISTENER_SEM);
     shm_unlink(HOST_PLAYER_PIPE);
+    destroy_logger();
 }
