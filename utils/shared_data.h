@@ -23,6 +23,7 @@ typedef struct {
     int host_pid;
     int carried_treasure;
     int brought_treasure;
+    int deaths;
     player_kind_t player_kind;
     field_t player_sh_lbrth[PLAYER_SIGHT][PLAYER_SIGHT];
     size_t current_round;
