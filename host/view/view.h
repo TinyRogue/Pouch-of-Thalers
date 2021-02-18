@@ -14,6 +14,7 @@ void init_screen();
 void print_field(const field_kind_t type, const int row, const int column);
 void print_player(const short player_number, const int row, const int column);
 void print_beast(const int row, const int column);
+void print(const char* const message, const int row, const int column);
 
 
 #endif //GOGGLE_EYED_APPROACH_VIEW_H

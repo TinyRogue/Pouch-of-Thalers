@@ -101,7 +101,15 @@ void print_beast(const int row, const int column) {
 
 void print_player(const short player_number, const int row, const int column) {
     attron(COLOR_PAIR(PLAYER_COLOUR));
-    // mvprintw(row, column, "%d", player_number);
+    mvprintw(row, column, "%d", player_number);
     attroff(COLOR_PAIR(PLAYER_COLOUR));
+    refresh();
+}
+
+
+void print(const char* const message, const int row, const int column) {
+    attron(COLOR_PAIR(TEXT_COLOUR));
+    mvprintw(row, column, "%s", message);
+    attroff(COLOR_PAIR(TEXT_COLOUR));
     refresh();
 }
