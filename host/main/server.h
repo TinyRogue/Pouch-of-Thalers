@@ -6,44 +6,37 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/mman.h>
+#include <time.h>
+#include <stdlib.h>
 #include "../labyrinth-loader/labyrinth-loader.h"
 #include "../view/view.h"
+#include "../../utils/shared_data.h"
 
-#define PLAYER_SIGHT 3
+#define PLAYER_SIGHT 3  //* <-- Override for sake of safety
 #define MAX_PLAYERS 4
 #define MAP_PRNTR_SEM "/MAP_PRNTR_SEM"
-
-typedef enum {CPU, HUMAN} player_kind_t;
-typedef enum {EAST, NORTH, WEST, SOUTH} dir_t;
+#define FREE_SLOT_UNAVAILABLE -1
+#define ADDITIONAL_INFO_SIZE 100
 
 typedef struct {
-    int spawn_pos_x;
-    int spawn_pos_y;
-    int carried_treasure;
-    int brought_treasure;
-    bool is_slowed_down;
-
-    struct shared_info_t {
-        int pid;
-        int server_pid;
+    struct server_side_info_t {
+        int spawn_pos_x;
+        int spawn_pos_y;
         int carried_treasure;
         int brought_treasure;
-        player_kind_t player_kind;
-        field_t player_sh_lbrth[PLAYER_SIGHT][PLAYER_SIGHT];
-        size_t current_round;
-        struct {
-            int pos_x;
-            int pos_y;
-        };
-        dir_t dir;
-        sem_t host_resp;
-        sem_t player_resp;
-    } *shared_info;
+        bool is_slowed_down;
+        char shm_name[40];
+        
+        bool is_slot_taken;
+    } server_side_info;
+
+    shared_info_t *shared_info;
 } player_t;
 
 typedef struct {
     size_t current_round;
-    int server_pid;
+    size_t host_pid;
     pthread_mutex_t general_lock;
     
     labyrinth_t *lbrth;
@@ -52,7 +45,7 @@ typedef struct {
 } game_t;
 
 
-bool initialize(const char * const filename);
+bool initialize(const char* const filename);
 void clean_up();
 
 #endif //GOGGLE_EYED_APPROACH_SERVER_H
