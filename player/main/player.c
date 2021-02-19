@@ -1,0 +1,226 @@
+#include "player.h"
+
+shared_info_t *my_info;
+sem_t map_invoker_sem;
+
+//--- Player joining section ------------------------------------------------------------------
+static bool join_the_game() {
+    int width = 0, height = 0;
+    getmaxyx(stdscr, height, width);
+
+    //* Openening general connection memory section
+    int fd = shm_open(HOST_PLAYER_PIPE, O_RDWR, 0666);
+    if (-1 == fd) {    
+        char message[] = "Couldn't open connection shared memory. Probably server is down.";
+
+        print(message, height / 2, width / 2 - strlen(message) / 2);
+        print("Press any key to continue.", height / 2 + 2, width / 2 - strlen(message) / 2);
+        getchar();
+        return false;
+    }
+
+    comms_t comms;
+    comms.comm_shm = (struct comm_shm*)mmap(NULL, sizeof(struct comm_shm), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (MAP_FAILED == comms.comm_shm) {
+        char message[] = "Couldn't map shared memory. Internal error.";
+
+        print(message, height / 2, width / 2 - strlen(message) / 2);
+        print("Press any key to continue.", height / 2 + 2, width / 2 - strlen(message) / 2);
+        getchar();
+        return false;
+    }
+    close(fd);
+
+    comms.player_response_sem = sem_open(PLAYER_LISTNER_SEM, 0);
+    if (comms.player_response_sem == SEM_FAILED) {
+        char message[] = "Couldn't open player response sem. Probably server is down.";
+
+        print(message, height / 2, width / 2 - strlen(message) / 2);
+        print("Press any key to continue.", height / 2 + 2, width / 2 - strlen(message) / 2);
+        getchar();
+        return false;
+    }
+
+    comms.host_response_sem = sem_open(HOST_LISTENER_SEM, 0);
+    if (comms.host_response_sem == SEM_FAILED) {
+        char message[] = "Server rejected joining. More info below.";
+
+        print(message, height / 2, width / 2 - strlen(message) / 2);
+        print("Press any key to continue.", height / 2 + 2, width / 2 - strlen(message) / 2);
+        getchar();
+        return false;
+    }
+
+    sem_post(comms.player_response_sem);
+    sem_wait(comms.host_response_sem);
+
+    if (comms.comm_shm->join_approval != PENDING) {
+        char message[] = "Server rejected joining. More info below.";
+
+        print(message, height / 2, width / 2 - strlen(message) / 2);
+        print(comms.comm_shm->additional_info, height / 2 + 1, width / 2 + strlen(comms.comm_shm->additional_info) / 2);
+        print("Press any key to continue.", height / 2 + 2, width / 2 - strlen(message) / 2);
+        getchar();
+        return false;
+    }
+    
+    comms.comm_shm->pid = getpid();
+
+    sem_post(comms.player_response_sem);
+    sem_wait(comms.host_response_sem);
+    if (comms.comm_shm->join_approval != ACCEPTED) {
+        char message[] = "Server rejected joining. More info below.";
+
+        print(message, height / 2, width / 2 - strlen(message) / 2);
+        print(comms.comm_shm->additional_info, height / 2 + 1, width / 2 - strlen(message) / 2);
+        print("Press any key to continue.", height / 2 + 2, width / 2 - strlen(message) / 2);
+        getchar();
+        return false;
+    }
+
+    //* Openening specified memory section
+    fd = shm_open(comms.comm_shm->shm_name, O_RDWR, 0666);
+    if (-1 == fd) {
+        comms.comm_shm->join_approval = REJECTED;
+        sem_post(comms.player_response_sem);
+
+        char message[] = "Could not open memory given by server. Aborting...";
+        print(message, height / 2, width / 2 - strlen(message) / 2);
+        print("Press any key to continue.", height / 2 + 2, width / 2 - strlen(message) / 2);
+        getchar();
+        return false;
+    }
+
+    my_info = (shared_info_t*)mmap(NULL, sizeof(shared_info_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (MAP_FAILED == my_info) {
+        comms.comm_shm->join_approval = REJECTED;
+        sem_post(comms.player_response_sem);
+
+        char message[] = "Could not map memory given by server. Aborting...";
+        print(message, height / 2, width / 2 - strlen(message) / 2);
+        print("Press any key to continue.", height / 2 + 2, width / 2 - strlen(message) / 2);
+        getchar();
+        return false;
+    }
+
+    sem_post(comms.player_response_sem);
+    return true;
+}
+//---------------------------------------------------------------------------------------------
+//--- Print section ---------------------------------------------------------------------------
+void print_map() {
+    int start_x = my_info->pos_x - 1;
+    int start_y = my_info->pos_y - 1;
+
+    for (int i = 0; i < PLAYER_SIGHT; i++) {
+        for (int j = 0; j < PLAYER_SIGHT; j++) {
+            print_field(my_info->player_sh_lbrth[i][j].kind, start_y + i, start_x + j);
+        }
+    }
+}
+
+
+void print_info() {
+    char host_pid[30], round_number[30], player_number[30], current_loc[30], deaths[30], coins_found[30], coins_brought[30];
+
+    sprintf(host_pid, "Server's pid: %d", my_info->host_pid);
+    sprintf(round_number, "Round number: %lu", my_info->current_round);
+    sprintf(player_number, "Number: %d", my_info->player_number);
+    sprintf(current_loc, "Curr X/Y: %02d/%02d", my_info->pos_x, my_info->pos_y);
+    sprintf(deaths, "Deaths: %d", my_info->deaths);
+    sprintf(coins_found, "Coins found: %d", my_info->carried_treasure);
+    sprintf(coins_brought, "Coins brought: %d", my_info->brought_treasure);
+
+    print(host_pid, 2, MAX_MAP_WIDTH + 1);
+    print(round_number, 3, MAX_MAP_WIDTH + 1);
+    print("---Player---", 4, MAX_MAP_WIDTH + 1);
+    print(player_number, 5, MAX_MAP_WIDTH + 1);
+    print(current_loc, 6, MAX_MAP_WIDTH + 1);
+    print(deaths, 7, MAX_MAP_WIDTH + 1);
+    print(coins_found, 9, MAX_MAP_WIDTH + 1);
+    print(coins_brought, 10, MAX_MAP_WIDTH + 1);
+}
+
+
+void *print_map_on_event(void *ignored) {
+
+    pthread_mutex_t printer_mut;
+
+    if (pthread_mutex_init(&printer_mut, NULL)) {
+        printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
+        return NULL;
+    }
+
+    init_screen();
+    log_message("Successfully joined to game!");
+    print_legend(MAX_MAP_HEIGHT - 9, MAX_MAP_WIDTH + 1);
+
+    while (true) {
+        if (-1 == sem_wait(&map_invoker_sem)) {
+            printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
+            return NULL;
+        }
+
+        pthread_mutex_lock(&printer_mut);
+        print_map();
+        print_info();
+        print_player(my_info->player_number, my_info->pos_y, my_info->pos_x);
+        pthread_mutex_unlock(&printer_mut);
+    }
+
+    pthread_mutex_destroy(&printer_mut);
+    return NULL;
+}
+
+
+//---------------------------------------------------------------------------------------------
+bool initialise() {
+    //* Display init section
+    if (!init_logger(MAX_MAP_HEIGHT - 9, MAX_MAP_WIDTH + 1 + 36, 9, 120)) {
+        printf("Couldn't initialise logger. Aborting...\n");
+        return false;
+    }
+    init_screen();
+    
+    if (sem_init(&map_invoker_sem, 0, 0)) {
+        int width = 0, height = 0;
+        getmaxyx(stdscr, height, width);
+
+        char message[] = "Map invoker sem init failed. Aborting...";
+        print(message, height / 2, width / 2 - strlen(message) / 2);
+        print("Press any key to continue.", height / 2 + 2, width / 2 - strlen(message) / 2);
+        getchar();
+        return false;
+    }
+
+    //* Connecting to server section
+    if (!join_the_game()) {
+        return false;
+    }
+
+    //* Display main section
+    pthread_t printer_thrd;
+    if (pthread_create(&printer_thrd, NULL, print_map_on_event, NULL)) {
+        int width = 0, height = 0;
+        getmaxyx(stdscr, height, width);
+
+        char message[] = "Map invoker sem init failed. Aborting...";
+        print(message, height / 2, width / 2 - strlen(message) / 2);
+        print("Press any key to continue.", height / 2 + 2, width / 2 - strlen(message) / 2);
+        sem_destroy(&map_invoker_sem);
+        getchar();
+        return false;
+    }
+    sem_post(&map_invoker_sem);
+
+    //* Final section
+    getchar();
+    return true;
+}
+
+
+void clean_up() {
+    sem_destroy(&map_invoker_sem);
+    destroy_logger();
+    endwin();
+}

@@ -2,7 +2,7 @@ TARGET_EXEC := player
 
 CC := gcc
 BUILD_DIR := ../build/$(TARGET_EXEC)
-SRC_DIRS := .
+SRC_DIRS := . ../utils
 
 SRCS := $(shell find $(SRC_DIRS) -name '*.c')
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)

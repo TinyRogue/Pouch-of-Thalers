@@ -1,15 +1,12 @@
-#include <stdio.h>
-#include <pthread.h>
-
-void *fun(void*arg) {
-    printf("Welcome!\n");
-    return NULL;
-}
+#include "player.h"
 
 int main(void) {
-    pthread_t pthread;
-    pthread_create(&pthread, NULL, fun, NULL);
-    pthread_join(pthread, NULL);
-    printf("Bye");
-    return 0;
+    if (!initialise()) {
+        printf("Initialisation fault.\n");
+        clean_up();
+        exit(EXIT_FAILURE);
+    }
+
+    clean_up();
+    exit(EXIT_SUCCESS);
 }
