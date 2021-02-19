@@ -7,7 +7,7 @@ int main(void) {
         printf("Initializing failed!\n");
         exit(errno);
     }
-    
+
     clean_up();
     printf("DONE\n");
     exit(EXIT_SUCCESS);

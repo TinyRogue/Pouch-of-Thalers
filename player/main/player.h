@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <errno.h>
+#include <ctype.h>
 #include "../../utils/shared_data.h"
 #include "../../utils/view/view.h"
 
@@ -34,6 +35,7 @@ typedef struct {
 
 
 bool initialise();
+void play();
 void clean_up();
 
 #endif

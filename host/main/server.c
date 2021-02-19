@@ -42,7 +42,6 @@ static int find_free_slot() {
 //--- Main functions ---
 static bool tarry_for_player(comms_t *comms) {
 
-    // strncpy(comms->comm_shm->additional_info, "Waiting for player to show up.", ADDITIONAL_INFO_SIZE - 1);
     if (-1 == sem_wait(comms->player_response_sem)) {
         printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
         munmap(comms->comm_shm, sizeof(struct comm_shm));
@@ -410,6 +409,69 @@ static void *print_map_on_event(void *ignored) {
     return NULL;
 }
 //---------------------------------------------------------------------------------------------
+//---Command service section-------------------------------------------------------------------
+static void turnon_command_service() {
+    int user_action = '\0';
+    int row, column;
+
+    while (true) {
+        user_action = getch();
+        
+        switch (user_action) {
+
+        case 'b':
+        case 'B':
+            log_message("Added beast to map");
+            sem_post(game.print_map_invoker);
+            break;
+
+        case 'c':
+        case 'C':
+            rand_point_on_map(&column, &row);
+            if (-1 == column || -1 == row) {
+                log_message("Couldn't find location, try again.");
+                break;
+            }
+            game.lbrth->lbrth[row][column].kind = COIN;
+            game.lbrth->lbrth[row][column].value = 1;
+            log_message("Added coin to map");
+            sem_post(game.print_map_invoker);
+            break;
+
+        case 't':
+            rand_point_on_map(&column, &row);
+            if (-1 == column || -1 == row) {
+                log_message("Couldn't find location, try again.");
+                break;
+            }
+            game.lbrth->lbrth[row][column].kind = TREASURE;
+            game.lbrth->lbrth[row][column].value = 10;
+            log_message("Added treasure to map");
+            sem_post(game.print_map_invoker);
+            break;
+
+        case 'T':
+            rand_point_on_map(&column, &row);
+            if (-1 == column || -1 == row) {
+                log_message("Couldn't find location, try again.");
+                break;
+            }
+            game.lbrth->lbrth[row][column].kind = LARGE_TREASURE;
+            game.lbrth->lbrth[row][column].value = 50;
+            log_message("Added large treasure to map");
+            sem_post(game.print_map_invoker);
+            break;
+        case 'q':
+        case 'Q':
+            return;
+        default:
+            log_message("Invalid character. No action has been taken.");
+        }
+        usleep(50000);
+        flushinp();
+    }
+}
+//---------------------------------------------------------------------------------------------
 
 
 bool initialise(const char* const filename) {
@@ -469,7 +531,7 @@ bool initialise(const char* const filename) {
     }
 
     //* Final section
-    getchar();
+    turnon_command_service();
     return true;
 }
 

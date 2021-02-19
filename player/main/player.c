@@ -211,11 +211,43 @@ bool initialise() {
         getchar();
         return false;
     }
-    sem_post(&map_invoker_sem);
 
-    //* Final section
-    getchar();
+    sem_post(&map_invoker_sem);
     return true;
+}
+
+
+void play() {
+    int user_action = '\0';
+    
+    while (true) {
+        user_action = tolower(getch());
+        switch (user_action) {
+        case KEY_UP:
+        case 'w':
+            log_message("Trying to move up.");
+            break;
+        case KEY_DOWN:
+        case 's':
+            log_message("Trying to move down.");
+            break;
+        case KEY_LEFT:
+        case 'a':
+            log_message("Trying to move left.");
+            break;
+        case KEY_RIGHT:
+        case 'd':
+            log_message("Trying to move right.");
+            break;
+        case 'q':
+            log_message("Exiting. Goodbye!");
+            return;
+        default:
+            log_message("Invalid character. No action has been taken.");
+        }
+        usleep(50000);
+        flushinp();
+    }
 }
 
 
