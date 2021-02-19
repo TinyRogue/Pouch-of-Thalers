@@ -6,9 +6,7 @@ int main(void) {
         clean_up();
         exit(EXIT_FAILURE);
     }
-
     play();
-
     clean_up();
     exit(EXIT_SUCCESS);
 }

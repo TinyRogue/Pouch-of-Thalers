@@ -89,7 +89,6 @@ void print_field(const field_kind_t type, const int row, const int column) {
     attron(COLOR_PAIR(current_colour));
     mvprintw(row, column, "%c", current_character);
     attroff(COLOR_PAIR(current_colour));
-    refresh();
 }
 
 
@@ -97,7 +96,6 @@ void print_beast(const int row, const int column) {
     attron(COLOR_PAIR(BEAST_COLOUR));
     mvprintw(row, column, "*");
     attroff(COLOR_PAIR(BEAST_COLOUR));
-    refresh();
 }
 
 
@@ -105,7 +103,6 @@ void print_player(const short player_number, const int row, const int column) {
     attron(COLOR_PAIR(PLAYER_COLOUR));
     mvprintw(row, column, "%d", player_number);
     attroff(COLOR_PAIR(PLAYER_COLOUR));
-    refresh();
 }
 
 
@@ -116,12 +113,14 @@ void print(const char* const message, const int row, const int column) {
     refresh();
 }
 
+
 void print_coloured(const char* const message, const colours_t colour, const int row, const int column) {
     attron(COLOR_PAIR(colour));
     mvprintw(row, column, "%s", message);
     attroff(COLOR_PAIR(colour));
     refresh();
 }
+
 
 void print_legend(int row, int column) {
     const char *legend[] = {
@@ -131,8 +130,8 @@ void print_legend(int row, int column) {
         "#", " - Bushes",
         "*", " - Enemy:",
         "c", " - One coin",
-        "t", " - Treasure (5 coins)",
-        "T", " - Large treasure (10 coins)",
+        "t", " - Treasure (10 coins)",
+        "T", " - Large treasure (50 coins)",
         "A", " - Campsite", NULL
     };
 
@@ -170,11 +169,12 @@ void print_legend(int row, int column) {
 static logger_t logger;
 pthread_mutex_t logger_lock = PTHREAD_MUTEX_INITIALIZER;
 
-bool init_logger(int row, int column, int message_amount, int message_size) {
+bool init_logger(int row, int column, int message_amount, int message_size, pthread_mutex_t* lock) {
     logger.pos_x = column;
     logger.pos_y = row;
     logger.message_amount = message_amount;
     logger.message_size = message_size;
+    logger.lock = lock;
 
     logger.messages = (char**)calloc(logger.message_amount, sizeof(char*));
     if (!logger.messages) return false;
@@ -215,10 +215,12 @@ void log_message(const char * const message) {
     */
     strncat(logger.messages[0], "                              ", logger.message_size - 1 - strlen(logger.messages[0]));
 
+    pthread_mutex_lock(logger.lock);
     print_coloured("MESSAGES", TEXT_COLOUR, logger.pos_y, logger.pos_x);
     for (int i = 0; i < logger.message_amount; i++) {
         print_coloured(logger.messages[i], TEXT_COLOUR, logger.pos_y + i + 1, logger.pos_x);
     }
+    pthread_mutex_unlock(logger.lock);
     pthread_mutex_unlock(&logger_lock);
 }
 

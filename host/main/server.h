@@ -10,6 +10,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <signal.h>
 #include "../labyrinth-loader/labyrinth-loader.h"
 #include "../../utils/view/view.h"
 #include "../../utils/shared_data.h"

@@ -141,15 +141,8 @@ void print_info() {
     print(coins_brought, 10, MAX_MAP_WIDTH + 1);
 }
 
-
+pthread_mutex_t printer_mut = PTHREAD_MUTEX_INITIALIZER;
 void *print_map_on_event(void *ignored) {
-
-    pthread_mutex_t printer_mut;
-
-    if (pthread_mutex_init(&printer_mut, NULL)) {
-        printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
-        return NULL;
-    }
 
     init_screen();
     log_message("Successfully joined to game!");
@@ -168,16 +161,15 @@ void *print_map_on_event(void *ignored) {
         pthread_mutex_unlock(&printer_mut);
     }
 
-    pthread_mutex_destroy(&printer_mut);
     return NULL;
 }
 
 
 //---------------------------------------------------------------------------------------------
 bool initialise() {
-    //* Display init section
-    if (!init_logger(MAX_MAP_HEIGHT - 9, MAX_MAP_WIDTH + 1 + 36, 9, 120)) {
-        printf("Couldn't initialise logger. Aborting...\n");
+    // //* Display init section
+    if (!init_logger(MAX_MAP_HEIGHT - 9, MAX_MAP_WIDTH + 1 + 36, 9, 120, &printer_mut)) {
+        printf("Couldn't initialise // logger. Aborting...\n");
         return false;
     }
     init_screen();
@@ -226,18 +218,22 @@ void play() {
         case KEY_UP:
         case 'w':
             log_message("Trying to move up.");
+            my_info->dir = NORTH;
             break;
         case KEY_DOWN:
         case 's':
             log_message("Trying to move down.");
+            my_info->dir = SOUTH;
             break;
         case KEY_LEFT:
         case 'a':
             log_message("Trying to move left.");
+            my_info->dir = EAST;
             break;
         case KEY_RIGHT:
         case 'd':
             log_message("Trying to move right.");
+            my_info->dir = WEST;
             break;
         case 'q':
             log_message("Exiting. Goodbye!");
@@ -245,6 +241,11 @@ void play() {
         default:
             log_message("Invalid character. No action has been taken.");
         }
+
+        // sem_post(&my_info->player_response);
+        // sem_wait(&my_info->host_response);
+        // sem_post(&map_invoker_sem);
+
         usleep(50000);
         flushinp();
     }
@@ -252,6 +253,7 @@ void play() {
 
 
 void clean_up() {
+    munmap(my_info, sizeof(shared_info_t));
     sem_destroy(&map_invoker_sem);
     destroy_logger();
     endwin();

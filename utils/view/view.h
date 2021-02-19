@@ -18,6 +18,7 @@ typedef struct {
     char **messages;
     int pos_x;
     int pos_y;
+    pthread_mutex_t *lock;
 } logger_t;
 
 void init_screen();
@@ -28,7 +29,7 @@ void print(const char* const message, const int row, const int column);
 void print_coloured(const char* const message, const colours_t colour, const int row, const int column);
 void print_legend(int row, int column);
 
-bool init_logger(int row, int column, int message_amount, int message_size);
+bool init_logger(int row, int column, int message_amount, int message_size, pthread_mutex_t* lock);
 void log_message(const char * const message);
 void destroy_logger();
 
