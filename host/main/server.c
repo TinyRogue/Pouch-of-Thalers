@@ -74,7 +74,7 @@ static bool fill_server_side_info(comms_t *comms, int current_slot) {
     rand_point_on_map(&game.player_exchange[current_slot].server_side_info.spawn_pos_x, &game.player_exchange[current_slot].server_side_info.spawn_pos_y);
     if (game.player_exchange[current_slot].server_side_info.spawn_pos_x == -1 || game.player_exchange[current_slot].server_side_info.spawn_pos_y == -1) {
         strncpy(comms->comm_shm->additional_info, "Couldn't find free space on map.", ADDITIONAL_INFO_SIZE -1);
-        comms->comm_shm->can_join = false;
+        comms->comm_shm->join_approval = REJECTED;
         sem_post(comms->host_response_sem);
         return false;
     }
@@ -91,7 +91,7 @@ static bool open_player_shm(comms_t *comms, int current_slot) {
     int fd = shm_open(comms->comm_shm->shm_name, O_CREAT | O_RDWR, 0666);
     if (-1 == fd) {
         strncpy(comms->comm_shm->additional_info, "Couldn't open shm. Internal error.", ADDITIONAL_INFO_SIZE -1);
-        comms->comm_shm->can_join = false;
+        comms->comm_shm->join_approval = REJECTED;
         sem_post(comms->host_response_sem);
         return false;
     }
@@ -99,7 +99,7 @@ static bool open_player_shm(comms_t *comms, int current_slot) {
     if (-1 == ftruncate(fd, sizeof(shared_info_t))) {
         printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
         strncpy(comms->comm_shm->additional_info, "Couldn't truncate shm. Internal error.", ADDITIONAL_INFO_SIZE -1);
-        comms->comm_shm->can_join = false;
+        comms->comm_shm->join_approval = REJECTED;
         sem_post(comms->host_response_sem);
         close(fd);
         shm_unlink(comms->comm_shm->shm_name);
@@ -110,7 +110,7 @@ static bool open_player_shm(comms_t *comms, int current_slot) {
     if (MAP_FAILED == game.player_exchange[current_slot].shared_info) {
         printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
         strncpy(comms->comm_shm->additional_info, "Couldn't map shm. Internal error.", ADDITIONAL_INFO_SIZE -1);
-        comms->comm_shm->can_join = false;
+        comms->comm_shm->join_approval = REJECTED;
         sem_post(comms->host_response_sem);
 
         close(fd);
@@ -133,10 +133,13 @@ static void fill_shared_info(int current_slot) {
     game.player_exchange[current_slot].shared_info->host_pid = game.host_pid;
     game.player_exchange[current_slot].shared_info->pos_x = game.player_exchange[current_slot].server_side_info.spawn_pos_x;
     game.player_exchange[current_slot].shared_info->pos_y = game.player_exchange[current_slot].server_side_info.spawn_pos_y;
+    game.player_exchange[current_slot].shared_info->player_number = current_slot + 1;
     
+    int start_x = game.player_exchange[current_slot].server_side_info.spawn_pos_x - 1;
+    int start_y = game.player_exchange[current_slot].server_side_info.spawn_pos_y - 1;
     for (int row = 0; row < PLAYER_SIGHT; row++) {
         for (int column = 0; column < PLAYER_SIGHT; column++) {
-            game.player_exchange[current_slot].shared_info->player_sh_lbrth[row][column] = game.lbrth->lbrth[row][column];
+            game.player_exchange[current_slot].shared_info->player_sh_lbrth[row][column] = game.lbrth->lbrth[start_y + row][start_x + column];
         }
     }
 }
@@ -147,7 +150,7 @@ static bool open_shared_sems(comms_t *comms, int current_slot) {
     if (sem_init(&game.player_exchange[current_slot].shared_info->host_response, 1, 0)) {
         printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
         strncpy(comms->comm_shm->additional_info, "Couldn't init host unnamed sem. Internal error.", ADDITIONAL_INFO_SIZE -1);
-        comms->comm_shm->can_join = false;
+        comms->comm_shm->join_approval = REJECTED;
         sem_post(comms->host_response_sem);
 
         shm_unlink(comms->comm_shm->shm_name);
@@ -158,7 +161,7 @@ static bool open_shared_sems(comms_t *comms, int current_slot) {
     if (sem_init(&game.player_exchange[current_slot].shared_info->player_response, 1, 0)) {
         printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
         strncpy(comms->comm_shm->additional_info, "Couldn't init player unnamed sem. Internal error.", ADDITIONAL_INFO_SIZE -1);
-        comms->comm_shm->can_join = false;
+        comms->comm_shm->join_approval = REJECTED;
         sem_post(comms->host_response_sem);
 
         shm_unlink(comms->comm_shm->shm_name);
@@ -176,10 +179,12 @@ static void *player_listener_handler(void *comm_sems) {
     int current_slot = 0;
 
     while (true) {
+        comms->comm_shm->join_approval = WAITING_FOR_PLAYER;
         if (!tarry_for_player(comms)) {
             return NULL;
         }
         log_message("New willing player has appeared!");
+        comms->comm_shm->join_approval = PENDING;
 
         
         pthread_mutex_lock(&player_listener_mut);
@@ -195,7 +200,7 @@ static void *player_listener_handler(void *comm_sems) {
         if (FREE_SLOT_UNAVAILABLE ==  current_slot) {
             log_message("No free slot available. Rejecting.");
             strncpy(comms->comm_shm->additional_info, "No slot available.", ADDITIONAL_INFO_SIZE - 1);
-            comms->comm_shm->can_join = false;
+            comms->comm_shm->join_approval = REJECTED;
             sem_post(comms->host_response_sem);
             pthread_mutex_unlock(&player_listener_mut);
             continue;
@@ -222,9 +227,23 @@ static void *player_listener_handler(void *comm_sems) {
             continue;
         }
         
-        comms->comm_shm->can_join = true;
+        comms->comm_shm->join_approval = ACCEPTED;
         strncpy(comms->comm_shm->additional_info, "Successful connection!", ADDITIONAL_INFO_SIZE - 1);
         sem_post(comms->host_response_sem);
+
+        if (-1 == sem_wait(comms->player_response_sem)) {
+            shm_unlink(comms->comm_shm->shm_name);
+            pthread_mutex_unlock(&player_listener_mut);
+            log_message("Final joining step failed. Rejected.");
+            continue;
+        }
+
+        if (comms->comm_shm->join_approval != ACCEPTED) {
+            shm_unlink(comms->comm_shm->shm_name);
+            pthread_mutex_unlock(&player_listener_mut);
+            log_message("Player troubled opening shm. Rejected.");
+            continue;
+        }
 
         log_message("New player appeared in game!");
         pthread_mutex_unlock(&player_listener_mut);
