@@ -4,7 +4,8 @@
 #include <ncurses.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../main/server.h"
+#include <pthread.h>
+#include "../shared_data.h"
 
 typedef enum {
     WALL_COLOUR = 1, BUSHES_COLOUR, BEAST_COLOUR, TREASURE_COLOUR, CAMPSITE_COLOUR, PLAYER_COLOUR, BLANK_COLOUR,

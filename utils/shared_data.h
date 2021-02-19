@@ -8,10 +8,13 @@
 #define HOST_LISTENER_SEM "/HOST_LSTNR_SEM"
 #define HOST_PLAYER_PIPE "/HP_PIPE"
 #define PLAYER_SIGHT 3
+#define MAX_MAP_WIDTH 128
+#define MAX_MAP_HEIGHT 28
 
 typedef enum {BLANK, WALL, BUSH, COIN, TREASURE, LARGE_TREASURE, DROPPED_TREASURE, CAMPSITE, SPAWN} field_kind_t;
 typedef enum {CPU, HUMAN} player_kind_t;
 typedef enum {EAST, NORTH, WEST, SOUTH} dir_t;
+typedef enum {WAITING_FOR_PLAYER, REJECTED, PENDING, ACCEPTED} join_approval_t;
 
 typedef struct {
     size_t value;
@@ -34,6 +37,7 @@ typedef struct {
     dir_t dir;
     sem_t host_response;
     sem_t player_response;
+    int player_number;
 } shared_info_t;
 
 typedef struct {
@@ -42,7 +46,7 @@ typedef struct {
     struct comm_shm {
         size_t pid;
         char shm_name[40];
-        bool can_join;
+        short join_approval;
         char additional_info[100];
     } *comm_shm;
 } comms_t;
