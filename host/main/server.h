@@ -20,6 +20,7 @@
 #define MAP_PRNTR_SEM "/MAP_PRNTR_SEM"
 #define FREE_SLOT_UNAVAILABLE -1
 #define ADDITIONAL_INFO_SIZE 100
+#define SECOND 1000000
 
 typedef struct {
     struct server_side_info_t {
