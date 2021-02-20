@@ -127,9 +127,9 @@ void print_info() {
     sprintf(round_number, "Round number: %lu", my_info->current_round);
     sprintf(player_number, "Number: %d", my_info->player_number);
     sprintf(current_loc, "Curr X/Y: %02d/%02d", my_info->pos_x, my_info->pos_y);
-    sprintf(deaths, "Deaths: %d", my_info->deaths);
-    sprintf(coins_found, "Coins found: %d", my_info->carried_treasure);
-    sprintf(coins_brought, "Coins brought: %d", my_info->brought_treasure);
+    sprintf(deaths, "Deaths: %02d", my_info->deaths);
+    sprintf(coins_found, "Coins found: %05d", my_info->carried_treasure);
+    sprintf(coins_brought, "Coins brought: %05d", my_info->brought_treasure);
 
     print(host_pid, 2, MAX_MAP_WIDTH + 1);
     print(round_number, 3, MAX_MAP_WIDTH + 1);
@@ -228,12 +228,12 @@ void play() {
         case KEY_LEFT:
         case 'a':
             log_message("Trying to move left.");
-            my_info->dir = EAST;
+            my_info->dir = WEST;
             break;
         case KEY_RIGHT:
         case 'd':
             log_message("Trying to move right.");
-            my_info->dir = WEST;
+            my_info->dir = EAST;
             break;
         case 'q':
             log_message("Exiting. Goodbye!");
@@ -242,9 +242,9 @@ void play() {
             log_message("Invalid character. No action has been taken.");
         }
 
-        // sem_post(&my_info->player_response);
-        // sem_wait(&my_info->host_response);
-        // sem_post(&map_invoker_sem);
+        sem_post(&my_info->player_response);
+        sem_wait(&my_info->host_response);
+        sem_post(&map_invoker_sem);
 
         usleep(50000);
         flushinp();
