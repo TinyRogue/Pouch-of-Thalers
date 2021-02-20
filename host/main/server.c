@@ -746,6 +746,9 @@ static void remove_players() {
 void clean_up() {
     remove_players();
     destroy_labyrinth(game.lbrth);
+    sem_close(comms.host_response_sem);
+    sem_close(comms.player_response_sem);
+    sem_close(game.print_map_invoker);
     sem_unlink(MAP_PRNTR_SEM);
     sem_unlink(PLAYER_LISTNER_SEM);
     sem_unlink(HOST_LISTENER_SEM);
