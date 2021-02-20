@@ -149,7 +149,8 @@ void *print_map_on_event(void *ignored) {
     print_legend(MAX_MAP_HEIGHT - 9, MAX_MAP_WIDTH + 1);
 
     while (true) {
-        if (-1 == sem_wait(&map_invoker_sem)) {
+        
+        if (-1 == sem_wait(&my_info->host_response)) {
             printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
             return NULL;
         }
@@ -158,6 +159,7 @@ void *print_map_on_event(void *ignored) {
         print_map();
         print_info();
         print_player(my_info->player_number, my_info->pos_y, my_info->pos_x);
+        refresh();
         pthread_mutex_unlock(&printer_mut);
     }
 
@@ -173,17 +175,6 @@ bool initialise() {
         return false;
     }
     init_screen();
-    
-    if (sem_init(&map_invoker_sem, 0, 0)) {
-        int width = 0, height = 0;
-        getmaxyx(stdscr, height, width);
-
-        char message[] = "Map invoker sem init failed. Aborting...";
-        print(message, height / 2, width / 2 - strlen(message) / 2);
-        print("Press any key to continue.", height / 2 + 2, width / 2 - strlen(message) / 2);
-        getchar();
-        return false;
-    }
 
     //* Connecting to server section
     if (!join_the_game()) {
@@ -241,9 +232,15 @@ void play() {
         default:
             log_message("Invalid character. No action has been taken.");
         }
+        int check_val = 0;
+        sem_getvalue(&my_info->player_response, &check_val);
+        
+        if (check_val != 0) {
+            flushinp();
+            continue;
+        }
 
         sem_post(&my_info->player_response);
-        sem_wait(&my_info->host_response);
         sem_post(&map_invoker_sem);
 
         usleep(50000);

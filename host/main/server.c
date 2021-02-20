@@ -534,8 +534,10 @@ static void manage_players_moves() {
         shared_info = game.player_exchange[curr_player].shared_info;
 
         if (!host_side_info->is_slot_taken) continue;
-        if (sem_trywait(&shared_info->player_response) != 0) continue;
-        log_message("Player want a move! xD");
+        if (sem_trywait(&shared_info->player_response) != 0) {
+            continue;
+        }
+
         if (host_side_info->is_slowed_down) {
             host_side_info->is_slowed_down = false;
             continue;
@@ -570,51 +572,30 @@ static void manage_players_moves() {
         //TODO: check if beast
 
         if (field_to_go.kind == WALL) {
-            log_message("Wall");
             break;
         } else if (field_to_go.kind == BLANK) {
-            log_message("Blank");
             host_side_info->curr_x = curr_pos_x + move_column_by;
             host_side_info->curr_y = curr_pos_y + move_row_by;
-
-            shared_info->pos_x = curr_pos_x + move_column_by;
-            shared_info->pos_y = curr_pos_y + move_row_by;
 
         } else if (field_to_go.kind == COIN || field_to_go.kind == TREASURE || field_to_go.kind == LARGE_TREASURE || field_to_go.kind == DROPPED_TREASURE) {
-            log_message("Coin to go");
             host_side_info->curr_x = curr_pos_x + move_column_by;
             host_side_info->curr_y = curr_pos_y + move_row_by;
 
-            shared_info->pos_x = curr_pos_x + move_column_by;
-            shared_info->pos_y = curr_pos_y + move_row_by;
-            
             host_side_info->carried_treasure += field_to_go.value;
-            shared_info->carried_treasure = host_side_info->carried_treasure;
+
             game.lbrth->lbrth[curr_pos_y + move_row_by][curr_pos_x + move_column_by].kind = BLANK;
             game.lbrth->lbrth[curr_pos_y + move_row_by][curr_pos_x + move_column_by].value = 0;
 
         } else if (field_to_go.kind == CAMPSITE) {
-            log_message("Camp");
             host_side_info->curr_x = curr_pos_x + move_column_by;
             host_side_info->curr_y = curr_pos_y + move_row_by;
-
-            shared_info->pos_x = curr_pos_x + move_column_by;
-            shared_info->pos_y = curr_pos_y + move_row_by;
 
             host_side_info->brought_treasure += host_side_info->carried_treasure;
             host_side_info->carried_treasure = 0;
 
-            shared_info->brought_treasure = host_side_info->brought_treasure;
-            shared_info->carried_treasure = 0;
-
         } else if (field_to_go.kind == BUSH) {
-            log_message("Bush");
             host_side_info->curr_x = curr_pos_x + move_column_by;
             host_side_info->curr_y = curr_pos_y + move_row_by;
-
-            shared_info->pos_x = curr_pos_x + move_column_by;
-            shared_info->pos_y = curr_pos_y + move_row_by;
-
             host_side_info->is_slowed_down = true;
         }
     }
@@ -634,16 +615,19 @@ static void update_shared_info() {
 
         shared_info->current_round = game.current_round;
         shared_info->deaths = host_side_info->deaths;
+        shared_info->pos_x = host_side_info->curr_x;
+        shared_info->pos_y = host_side_info->curr_y;
+        shared_info->brought_treasure = host_side_info->brought_treasure;
+        shared_info->carried_treasure = host_side_info->carried_treasure;
 
         int corner_x = host_side_info->curr_x - 1;
         int corner_y = host_side_info->curr_y - 1;
 
         for (int row = 0; row < PLAYER_SIGHT; row++) {
             for (int column = 0; column < PLAYER_SIGHT; column++) {
-                shared_info->player_sh_lbrth[corner_y + row][corner_x + column] = game.lbrth->lbrth[corner_y + row][corner_x + column];
+                game.player_exchange[curr_player].shared_info->player_sh_lbrth[row][column] = game.lbrth->lbrth[corner_y + row][corner_x + column];
             }
         }
-        log_message("Posting to go");
         sem_post(&shared_info->host_response);
     }
 }
@@ -668,9 +652,8 @@ static void* manage_movements(void *ignored) {
         update_shared_info();
         pthread_mutex_unlock(&game.general_lock);
         
-        
         sem_post(game.print_map_invoker);
-        usleep(SECOND / 10);
+        usleep(SECOND);
     }
     return NULL;
 }
