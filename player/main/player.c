@@ -294,13 +294,6 @@ void play() {
         default:
             log_message("Invalid character. No action has been taken.");
         }
-        int check_val = 0;
-        sem_getvalue(&my_info->player_response, &check_val);
-        
-        if (check_val != 0) {
-            flushinp();
-            continue;
-        }
 
         sem_post(&my_info->player_response);
         sem_post(&map_invoker_sem);
