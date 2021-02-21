@@ -1138,8 +1138,3 @@ void clean_up() {
     pthread_mutex_destroy(&game.general_lock);
     endwin();
 }
-
-//TODO: make unique spawns
-//TODO: create sem for joining
-//TODO: check killing at player display
-//TODO: close threads

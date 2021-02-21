@@ -6,7 +6,7 @@
 #include <string.h>                     /*  For error handling          */
 #include <errno.h>                      /*  For error handling          */
 #include <stdlib.h>                     /*  For exit(), malloc() family */
-#include "../../utils/shared_data.h"    /* For field_kind_t and field_t */
+#include "../../utils/shared_data.h"    /*  For field_kind_t and field_t*/
 
 typedef struct {
     field_t **lbrth;

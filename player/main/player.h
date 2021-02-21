@@ -1,20 +1,18 @@
 #ifndef PLAYER_H
 #define PLAYER_H
 
-#include <pthread.h> /* For mutex and semaphore service */
-#include <semaphore.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <time.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <errno.h>
-#include <ctype.h>
-#include "../../utils/shared_data.h"
-#include "../../utils/view/view.h"
+#include <pthread.h>                    /* For mutexes and threads                  */
+#include <semaphore.h>                  /* For semaphores                           */
+#include <unistd.h>                     /* For usleep */
+#include <fcntl.h>                      /* For shm and sem constants                */
+#include <sys/mman.h>                   /* For mmap, shared memory                  */
+#include <time.h>                       /* For srand, current time                  */
+#include <stdlib.h>                     /* For exit(), malloc() family              */
+#include <stdbool.h>                    /* For bool type                            */
+#include <errno.h>                      /* For error handling                       */
+#include <ctype.h>                      /* For tolower()                            */
+#include "../../utils/shared_data.h"    /* For structures used in host and player   */
+#include "../../utils/view/view.h"      /* Ncurses wrapper                          */
 
 #define NO_PLAYER -1
 #define NO_BEAST 0

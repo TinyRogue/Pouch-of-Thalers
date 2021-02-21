@@ -1,11 +1,11 @@
 #ifndef GOGGLE_EYED_APPROACH_VIEW_H
 #define GOGGLE_EYED_APPROACH_VIEW_H
 
-#include <ncurses.h>
-#include <stdlib.h>
-#include <string.h>
-#include <pthread.h>
-#include "../shared_data.h"
+#include <ncurses.h>        /* For displaying game                      */
+#include <stdlib.h>         /* For malloc() family                      */
+#include <string.h>         /* For mem*() family                        */
+#include <pthread.h>        /* For threads and mutexes                  */
+#include "../shared_data.h" /* For structes used in host and players    */ 
 
 typedef enum {
     WALL_COLOUR = 1, BUSHES_COLOUR, BEAST_COLOUR, TREASURE_COLOUR, CAMPSITE_COLOUR, PLAYER_COLOUR, BLANK_COLOUR,

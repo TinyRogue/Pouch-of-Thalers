@@ -1,19 +1,18 @@
 #ifndef GOGGLE_EYED_APPROACH_SERVER_H
 #define GOGGLE_EYED_APPROACH_SERVER_H
 
-#include <pthread.h> /* For mutex and semaphore service */
-#include <semaphore.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <time.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <signal.h>
-#include "../labyrinth-loader/labyrinth-loader.h"
-#include "../../utils/view/view.h"
-#include "../../utils/shared_data.h"
+#include <pthread.h>                                /* For mutexes and threads                  */
+#include <semaphore.h>                              /* For semaphores                           */
+#include <unistd.h>                                 /* For usleep()                             */
+#include <fcntl.h>                                  /* For shm and sem constants                */
+#include <sys/mman.h>                               /* For mmap, shared memory                  */
+#include <time.h>                                   /* For srand, current time                  */
+#include <stdlib.h>                                 /* For exit(), malloc() family              */
+#include <ctype.h>                                  /* For tolower()                            */
+#include <signal.h>                                 /* For kill()                               */
+#include "../labyrinth-loader/labyrinth-loader.h"   /* For labyrinth struct from file           */
+#include "../../utils/view/view.h"                  /* Ncurses wrapper                          */
+#include "../../utils/shared_data.h"                /* For structures used in host and player   */
 
 #ifdef PLAYER_SIGHT
 #undef PLAYER_SIGHT

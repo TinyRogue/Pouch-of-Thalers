@@ -1,7 +1,7 @@
 #ifndef SHARED_DATA_H
 #define SHARED_DATA_H
 
-#include <semaphore.h>
+#include <semaphore.h> /* For synchronisation via semaphores */
 
 
 #define PLAYER_LISTNER_SEM "/PLAYER_LSTNR_SEM"
