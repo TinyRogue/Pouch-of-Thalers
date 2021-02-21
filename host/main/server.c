@@ -135,8 +135,8 @@ static void fill_shared_info(int current_slot) {
     game.player_exchange[current_slot].shared_info->player_number = current_slot + 1;
     game.player_exchange[current_slot].shared_info->pid = comms.comm_shm->pid;
     
-    int start_x = game.player_exchange[current_slot].server_side_info.spawn_pos_x - 1;
-    int start_y = game.player_exchange[current_slot].server_side_info.spawn_pos_y - 1;
+    int start_x = game.player_exchange[current_slot].server_side_info.spawn_pos_x - PLAYER_SIGHT / 2;
+    int start_y = game.player_exchange[current_slot].server_side_info.spawn_pos_y - PLAYER_SIGHT / 2;
     for (int row = 0; row < PLAYER_SIGHT; row++) {
         for (int column = 0; column < PLAYER_SIGHT; column++) {
             game.player_exchange[current_slot].shared_info->player_sh_lbrth[row][column] = game.lbrth->lbrth[start_y + row][start_x + column];
@@ -463,7 +463,6 @@ static bool open_beast_shm(struct single_beast_t *beast_ptr) {
 }
 
 
-
 static bool open_beast_shared_sems(struct single_beast_t *beast_ptr) {
 
     if (sem_init(&beast_ptr->shared_info->host_response, 1, 0)) {
@@ -483,8 +482,10 @@ static void* run_beast(void *beast_ptr) {
     struct single_beast_t *beast = (struct single_beast_t*)beast_ptr;
 
     while (true) {
-        usleep(10 * SECOND);
-        break;
+        //TODO: rand move and hunt
+        beast->shared_info->dir = EAST;
+        sem_post(&beast->shared_info->player_response);
+        sem_wait(&beast->shared_info->host_response);
     }
     return NULL;
 }
@@ -562,7 +563,7 @@ static void turnon_command_service() {
             pthread_mutex_unlock(&game.general_lock);
             sem_post(game.print_map_invoker);
             break;
-            
+
         case 'c':
         case 'C':
             pthread_mutex_lock(&game.general_lock);
@@ -615,7 +616,7 @@ static void turnon_command_service() {
         default:
             log_message("Invalid character. No action has been taken.");
         }
-        usleep(SECOND / 200);
+        usleep(SECOND / 10);
         flushinp();
     }
 }
@@ -641,11 +642,6 @@ static void gather_player_remnants(int player_number) {
     game.player_exchange[player_number].server_side_info.is_slot_taken = false;
 }
 
-//TODO: implement this shiet
-static void manage_beasts_moves() {
-    
-}
-
 
 static void kill_player(int index) {
     game.player_exchange[index].server_side_info.carried_treasure = 0;
@@ -653,6 +649,65 @@ static void kill_player(int index) {
     game.player_exchange[index].server_side_info.curr_y = game.player_exchange[index].server_side_info.spawn_pos_y;
     game.player_exchange[index].server_side_info.deaths += 1;
     game.player_exchange[index].server_side_info.is_slowed_down = false;
+}
+
+
+static void manage_beasts_moves() {
+    shared_info_t *beast_info = NULL;
+    int move_row_by, move_column_by;
+    field_t field_to_go;
+
+    for (size_t curr_beast = 0; curr_beast < game.beasts.beasts_amount; curr_beast++) {
+        if (NULL == game.beasts.beasts_ptr[curr_beast]) continue;
+
+        beast_info = game.beasts.beasts_ptr[curr_beast]->shared_info;
+        
+        if (sem_trywait(&beast_info->player_response) != 0) {
+            continue;
+        }
+
+        move_row_by = move_column_by = 0;
+
+        switch (beast_info->dir) {
+        case NORTH:
+            move_row_by = -1;
+            break;
+        case SOUTH:
+            move_row_by = 1;
+            break;
+        case EAST:
+            move_column_by = 1;
+            break;
+        case WEST:
+            move_column_by = -1;
+            break;
+        }
+
+        field_to_go = game.lbrth->lbrth[beast_info->pos_y + move_row_by][beast_info->pos_x + move_column_by];
+
+        if (WALL == field_to_go.kind) {
+            break;
+        } else {
+            beast_info->pos_x = beast_info->pos_x + move_column_by;
+            beast_info->pos_y = beast_info->pos_y + move_row_by;
+        }
+
+        //* Fight beasts with players!
+        for (int player = 0; player < MAX_PLAYERS; player++) {
+            
+            bool equal_x = beast_info->pos_x + move_column_by == game.player_exchange[player].server_side_info.curr_x;
+            bool equal_y = beast_info->pos_y + move_row_by == game.player_exchange[player].server_side_info.curr_y;
+            
+            if (equal_x && equal_y && CAMPSITE != field_to_go.kind) {
+                game.lbrth->lbrth[beast_info->pos_y + move_row_by][beast_info->pos_x + move_column_by].value = game.player_exchange[player].server_side_info.carried_treasure + game.player_exchange[player].server_side_info.carried_treasure;
+                game.lbrth->lbrth[beast_info->pos_y + move_row_by][beast_info->pos_x + move_column_by].kind = DROPPED_TREASURE;
+                kill_player(player);
+                break;
+            }
+        }
+
+        sem_post(&beast_info->host_response);
+    }
 }
 
 
@@ -768,8 +823,8 @@ static void update_shared_info() {
         shared_info->brought_treasure = host_side_info->brought_treasure;
         shared_info->carried_treasure = host_side_info->carried_treasure;
 
-        int corner_x = host_side_info->curr_x - 1;
-        int corner_y = host_side_info->curr_y - 1;
+        int corner_x = host_side_info->curr_x - PLAYER_SIGHT / 2;
+        int corner_y = host_side_info->curr_y - PLAYER_SIGHT / 2;
 
         for (int row = 0; row < PLAYER_SIGHT; row++) {
             for (int column = 0; column < PLAYER_SIGHT; column++) {
@@ -921,3 +976,4 @@ void clean_up() {
 
 //TODO: make unique spawns
 //TODO: create sem for joining
+//TODO: check killing at player display

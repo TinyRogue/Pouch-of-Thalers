@@ -15,7 +15,11 @@
 #include "../../utils/view/view.h"
 #include "../../utils/shared_data.h"
 
-#define PLAYER_SIGHT 3  //* <-- Override for sake of safety
+#ifdef PLAYER_SIGHT
+#undef PLAYER_SIGHT
+#endif
+#define PLAYER_SIGHT 5  //* <-- Override for sake of safety
+
 #define MAX_PLAYERS 4
 #define MAP_PRNTR_SEM "/MAP_PRNTR_SEM"
 #define FREE_SLOT_UNAVAILABLE -1

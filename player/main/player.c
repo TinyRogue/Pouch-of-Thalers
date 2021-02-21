@@ -126,8 +126,8 @@ static void forget_players() {
 
 
 void print_map() {
-    int corner_x = my_info->pos_x - 1;
-    int corner_y = my_info->pos_y - 1;
+    int corner_x = my_info->pos_x - PLAYER_SIGHT / 2;
+    int corner_y = my_info->pos_y - PLAYER_SIGHT / 2;
 
     for (int i = 0; i < PLAYER_SIGHT; i++) {
         for (int j = 0; j < PLAYER_SIGHT; j++) {
@@ -176,7 +176,6 @@ void *print_map_on_event(void *ignored) {
     print_legend(MAX_MAP_HEIGHT - 9, MAX_MAP_WIDTH + 1);
 
     while (true) {
-        
         if (-1 == sem_wait(&my_info->host_response)) {
             printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
             return NULL;
