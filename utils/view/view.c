@@ -175,7 +175,7 @@ void print_legend(int row, int column) {
 
 // Logger section
 static logger_t logger;
-pthread_mutex_t logger_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t logger_internal_lock = PTHREAD_MUTEX_INITIALIZER;
 
 bool init_logger(int row, int column, int message_amount, int message_size, pthread_mutex_t* lock) {
     logger.pos_x = column;
@@ -207,7 +207,7 @@ void log_message(const char * const message) {
     time_t rawtime;
     char current_time[10] = {"\0"};
 
-    pthread_mutex_lock(&logger_lock);
+    pthread_mutex_lock(&logger_internal_lock);
     time (&rawtime);
     strftime(current_time, 10,"%X> ", localtime(&rawtime));
 
@@ -229,7 +229,7 @@ void log_message(const char * const message) {
         print_coloured(logger.messages[i], TEXT_COLOUR, logger.pos_y + i + 1, logger.pos_x);
     }
     pthread_mutex_unlock(logger.lock);
-    pthread_mutex_unlock(&logger_lock);
+    pthread_mutex_unlock(&logger_internal_lock);
 }
 
 
