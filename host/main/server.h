@@ -44,6 +44,15 @@ typedef struct {
     size_t current_round;
     size_t host_pid;
     pthread_mutex_t general_lock;
+    struct beasts_t {
+        size_t beasts_amount;
+        struct single_beast_t {
+            char shm_name[40];
+            pthread_t beasts_thrd;
+            shared_info_t *shared_info;
+            int beast_id;
+        } **beasts_ptr;
+    } beasts;
     
     labyrinth_t *lbrth;
     sem_t *print_map_invoker;

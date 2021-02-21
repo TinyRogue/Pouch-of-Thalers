@@ -264,7 +264,6 @@ static void *player_listener_handler(void *ignored) {
 
 
 static bool open_player_listener() {
-    
 
     comms.player_response_sem = sem_open(PLAYER_LISTNER_SEM, O_CREAT | O_EXCL, 0666, 0);
     if (SEM_FAILED == comms.player_response_sem) {
@@ -390,12 +389,15 @@ static void print_players() {
     }
 }
 
-// //TODO: implement
-// static void print_beats() {
 
-// }
+static void print_beasts() {
+    for (size_t i = 0; i < game.beasts.beasts_amount; i++) {
+        print_beast(game.beasts.beasts_ptr[i]->shared_info->pos_y, game.beasts.beasts_ptr[i]->shared_info->pos_x);
+    }
+}
+
+
 pthread_mutex_t printer_mut = PTHREAD_MUTEX_INITIALIZER;
-
 static void *print_map_on_event(void *ignored) {
     init_screen();
     print_legend(game.lbrth->height - 9, game.lbrth->width + 1);
@@ -411,11 +413,130 @@ static void *print_map_on_event(void *ignored) {
         print_map();
         print_current_round();
         print_players();
+        print_beasts();
         refresh();
         pthread_mutex_unlock(&printer_mut);
     }
 
     return NULL;
+}
+//---------------------------------------------------------------------------------------------
+//---Beasts section----------------------------------------------------------------------------
+static void kill_beasts() {
+    for (size_t i = 0; i < game.beasts.beasts_amount; i++) {
+        sem_destroy(&game.beasts.beasts_ptr[i]->shared_info->host_response);
+        sem_destroy(&game.beasts.beasts_ptr[i]->shared_info->player_response);
+        munmap(game.beasts.beasts_ptr[i]->shared_info, sizeof(shared_info_t));
+        shm_unlink(game.beasts.beasts_ptr[i]->shm_name);
+        free(*(game.beasts.beasts_ptr + i));
+    }
+    free(game.beasts.beasts_ptr);
+}
+
+
+static bool open_beast_shm(struct single_beast_t *beast_ptr) {
+    sprintf(beast_ptr->shm_name, "/BEAST_SHM_%lu", game.beasts.beasts_amount);
+
+    int fd = shm_open(beast_ptr->shm_name, O_CREAT | O_RDWR, 0666);
+    if (-1 == fd) {
+        log_message("Couldn't open beast shm. Internal error.");
+        return false;
+    }
+    
+    if (-1 == ftruncate(fd, sizeof(shared_info_t))) {
+        log_message("Couldn't truncate beast shm. Internal error.");
+        close(fd);
+        shm_unlink(beast_ptr->shm_name);
+        return false;
+    }
+
+    beast_ptr->shared_info = (shared_info_t*)mmap(NULL, sizeof(shared_info_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (MAP_FAILED == beast_ptr->shared_info) {
+        log_message("Couldn't map beast shm. Internal error.");
+        close(fd);
+        shm_unlink(beast_ptr->shm_name);
+        return false;
+    }
+
+    close(fd);
+    return true;
+}
+
+
+
+static bool open_beast_shared_sems(struct single_beast_t *beast_ptr) {
+
+    if (sem_init(&beast_ptr->shared_info->host_response, 1, 0)) {
+        log_message("Couldn't init host unnamed sem for beast. Internal error.");
+        return false;
+    }
+    
+    if (sem_init(&beast_ptr->shared_info->player_response, 1, 0)) {
+        log_message("Couldn't init host unnamed sem for beast. Internal error.");
+        return false;
+    }
+    return true;
+}
+
+
+static void* run_beast(void *beast_ptr) {
+    struct single_beast_t *beast = (struct single_beast_t*)beast_ptr;
+
+    while (true) {
+        usleep(10 * SECOND);
+        break;
+    }
+    return NULL;
+}
+
+
+static bool spawn_beast() {
+    int row, column;
+    rand_point_on_map(&column, &row);
+    if (-1 == column || -1 == row) {
+        log_message("Couldn't find location for beast, try again.");
+        return false;
+    }
+
+    struct single_beast_t **check_ptr = NULL;
+    check_ptr = realloc(game.beasts.beasts_ptr, game.beasts.beasts_amount * (sizeof(struct single_beast_t**) + 1));
+    if (!check_ptr) {
+        log_message("Could not expand beast array");
+        return false;
+    }
+
+    game.beasts.beasts_ptr = check_ptr;
+
+    game.beasts.beasts_ptr[game.beasts.beasts_amount] = (struct single_beast_t*)calloc(1, sizeof(struct single_beast_t));
+    if (!game.beasts.beasts_ptr[game.beasts.beasts_amount]) {
+        log_message("Could not allocate memory for beast");
+        return false;
+    }
+
+    game.beasts.beasts_ptr[game.beasts.beasts_amount]->beast_id = game.beasts.beasts_amount;
+
+    if (!open_beast_shm(game.beasts.beasts_ptr[game.beasts.beasts_amount])) {
+        log_message("Could not add beast to map. Shm error.");
+        free(*(game.beasts.beasts_ptr + game.beasts.beasts_amount));
+        *(game.beasts.beasts_ptr + game.beasts.beasts_amount) = NULL;
+        return false;
+    }
+
+    if (!open_beast_shared_sems(game.beasts.beasts_ptr[game.beasts.beasts_amount])) {
+        log_message("Could not open beast unnamed sems. Sem error.");
+        munmap(game.beasts.beasts_ptr[game.beasts.beasts_amount]->shared_info, sizeof(shared_info_t));
+        shm_unlink(game.beasts.beasts_ptr[game.beasts.beasts_amount]->shm_name);
+        free(*(game.beasts.beasts_ptr + game.beasts.beasts_amount));
+        *(game.beasts.beasts_ptr + game.beasts.beasts_amount) = NULL;
+        return false;
+    }
+
+    game.beasts.beasts_ptr[game.beasts.beasts_amount]->shared_info->pos_x = column;
+    game.beasts.beasts_ptr[game.beasts.beasts_amount]->shared_info->pos_y = row;
+
+    pthread_create(&game.beasts.beasts_ptr[game.beasts.beasts_amount]->beasts_thrd, NULL, run_beast, game.beasts.beasts_ptr[game.beasts.beasts_amount]);
+    game.beasts.beasts_amount++;
+    return true;
 }
 //---------------------------------------------------------------------------------------------
 //---Command service section-------------------------------------------------------------------
@@ -430,12 +551,18 @@ static void turnon_command_service() {
 
         case 'b':
         case 'B':
-            log_message("Added beast to map");
             pthread_mutex_lock(&game.general_lock);
-            sem_post(game.print_map_invoker);
-            pthread_mutex_unlock(&game.general_lock);
-            break;
+            if (!spawn_beast()) {
+                pthread_mutex_unlock(&game.general_lock);
+                sem_post(game.print_map_invoker);
+                continue;
+            }
+            log_message("Added beast to map");
 
+            pthread_mutex_unlock(&game.general_lock);
+            sem_post(game.print_map_invoker);
+            break;
+            
         case 'c':
         case 'C':
             pthread_mutex_lock(&game.general_lock);
@@ -516,7 +643,7 @@ static void gather_player_remnants(int player_number) {
 
 //TODO: implement this shiet
 static void manage_beasts_moves() {
-
+    
 }
 
 
@@ -777,6 +904,7 @@ static void remove_players() {
 
 
 void clean_up() {
+    kill_beasts();
     remove_players();
     destroy_labyrinth(game.lbrth);
     sem_close(comms.host_response_sem);
