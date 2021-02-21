@@ -1,7 +1,6 @@
 #include "player.h"
 
 shared_info_t *my_info;
-sem_t map_invoker_sem;
 
 //--- Player joining section ------------------------------------------------------------------
 static bool join_the_game() {
@@ -252,12 +251,10 @@ bool initialise() {
         char message[] = "Map invoker sem init failed. Aborting...";
         print(message, height / 2, width / 2 - strlen(message) / 2);
         print("Press any key to continue.", height / 2 + 2, width / 2 - strlen(message) / 2);
-        sem_destroy(&map_invoker_sem);
         getchar();
         return false;
     }
 
-    sem_post(&map_invoker_sem);
     return true;
 }
 
@@ -296,8 +293,6 @@ void play() {
         }
 
         sem_post(&my_info->player_response);
-        sem_post(&map_invoker_sem);
-
         usleep(50000);
         flushinp();
     }
@@ -306,7 +301,6 @@ void play() {
 
 void clean_up() {
     munmap(my_info, sizeof(shared_info_t));
-    sem_destroy(&map_invoker_sem);
     destroy_logger();
     endwin();
 }

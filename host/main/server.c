@@ -1078,6 +1078,7 @@ bool initialise(const char* const filename) {
         printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
         pthread_mutex_destroy(&game.general_lock);
         destroy_labyrinth(game.lbrth);
+        sem_close(game.print_map_invoker);
         sem_unlink(MAP_PRNTR_SEM);
         return false;
     }
@@ -1085,13 +1086,17 @@ bool initialise(const char* const filename) {
     if (!init_logger(game.lbrth->height - 9, game.lbrth->width + 1 + 36, 9, 120, &printer_mut)) {
         pthread_mutex_destroy(&game.general_lock);
         destroy_labyrinth(game.lbrth);
+        sem_close(game.print_map_invoker);
         sem_unlink(MAP_PRNTR_SEM);
+        return false;
     }
     
     //* Player listener section
     if (false == open_player_listener()) {
         pthread_mutex_destroy(&game.general_lock);
         destroy_labyrinth(game.lbrth);
+        destroy_logger();
+        sem_close(game.print_map_invoker);
         sem_unlink(MAP_PRNTR_SEM);
         return false;
     }
@@ -1101,9 +1106,13 @@ bool initialise(const char* const filename) {
         if (pthread_create(&manage_movements_thrd, NULL, manage_movements, NULL)) {
         pthread_mutex_destroy(&game.general_lock);
         destroy_labyrinth(game.lbrth);
+        sem_close(game.print_map_invoker);
+        sem_close(comms.host_response_sem);
+        sem_close(comms.player_response_sem);
         sem_unlink(MAP_PRNTR_SEM);
         sem_unlink(HOST_LISTENER_SEM);
         sem_unlink(PLAYER_LISTNER_SEM);
+        munmap(comms.comm_shm, sizeof(struct comm_shm));
         shm_unlink(HOST_PLAYER_PIPE);
        return false;
     }

@@ -11,6 +11,7 @@
 #include <stdbool.h>                    /* For bool type                            */
 #include <errno.h>                      /* For error handling                       */
 #include <ctype.h>                      /* For tolower()                            */
+#include <stdio.h>                      /* For printf()                             */
 #include "../../utils/shared_data.h"    /* For structures used in host and player   */
 #include "../../utils/view/view.h"      /* Ncurses wrapper                          */
 

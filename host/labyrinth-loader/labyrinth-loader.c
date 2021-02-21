@@ -113,7 +113,7 @@ static bool parse_labyrinth(FILE * const file, labyrinth_t * const lbrth) {
                 (*(lbrth->lbrth + i) + j)->kind = LARGE_TREASURE;
                 break;
             case 'A':
-                (*(lbrth->lbrth + i) + j)->value = 50;
+                (*(lbrth->lbrth + i) + j)->value = 0;
                 (*(lbrth->lbrth + i) + j)->kind = CAMPSITE;
                 break;
             default:

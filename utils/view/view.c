@@ -20,9 +20,6 @@ void init_screen() {
     raw();
     curs_set(0);
     keypad(stdscr, TRUE);
-    if (has_colors() == FALSE){
-        perror("Terminal has no colours");
-    }
 
     start_color();
     init_color(COLOR_BLUE, 150, 430, 680);
