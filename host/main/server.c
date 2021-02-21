@@ -556,13 +556,13 @@ bool was_hunting_successful(shared_info_t *shared_info) {
         //* Two fields or more
         if (y_distance == BEAST_IN_MIDDLE) {
             if (x_distance > RIGHT) {
-                if (game.lbrth->lbrth[shared_info->pos_y][shared_info->pos_x + 1].kind != WALL) {
+                if (game.lbrth->lbrth[shared_info->pos_y][shared_info->pos_x - 1].kind != WALL) {
                     shared_info->dir = WEST;
                     return true;
                 }
                 return false;
             } else if (x_distance < LEFT) {
-                if (game.lbrth->lbrth[shared_info->pos_y][shared_info->pos_x - 1].kind != WALL) {
+                if (game.lbrth->lbrth[shared_info->pos_y][shared_info->pos_x + 1].kind != WALL) {
                     shared_info->dir = EAST;
                     return true;
                 }
@@ -583,7 +583,6 @@ bool was_hunting_successful(shared_info_t *shared_info) {
                 return false;
             }
         }
-
     }
     return false;
 }
@@ -591,7 +590,23 @@ bool was_hunting_successful(shared_info_t *shared_info) {
 
 static void move_arbitrarily(shared_info_t *shared_info) {
     if (!shared_info) return;
-    shared_info->dir = NORTH; //TODO: randomize
+    
+    int direction_to_choose = rand() % 4;
+    
+    switch (direction_to_choose) {
+    case 0:
+        shared_info->dir = NORTH;
+        break;
+    case 1:
+        shared_info->dir = SOUTH;
+        break;
+    case 2:
+        shared_info->dir = WEST;
+        break;
+    case 3:
+        shared_info->dir = EAST;
+        break;
+    }
 }
 
 
@@ -599,12 +614,16 @@ static void* run_beast(void *beast_ptr) {
     struct single_beast_t *beast = (struct single_beast_t*)beast_ptr;
 
     while (true) {
-
+        bool to_go = true;
         if (!was_hunting_successful(beast->shared_info)) {
+            to_go = rand() % 100 > 60;
             move_arbitrarily(beast->shared_info);
         }
 
-        sem_post(&beast->shared_info->player_response);
+        if (to_go) {
+            sem_post(&beast->shared_info->player_response);
+        }
+
         if (-1 == sem_wait(&beast->shared_info->host_response)) {
             return NULL;
         }
@@ -738,7 +757,7 @@ static void turnon_command_service() {
         default:
             log_message("Invalid character. No action has been taken.");
         }
-        usleep(SECOND / 10);
+        usleep(SECOND / 200);
         flushinp();
     }
 }
@@ -785,6 +804,7 @@ static void manage_beasts_moves() {
         beast_info = game.beasts.beasts_ptr[curr_beast]->shared_info;
         
         if (sem_trywait(&beast_info->player_response) != 0) {
+            sem_post(&beast_info->host_response);
             continue;
         }
 
@@ -1013,7 +1033,7 @@ static void* manage_movements(void *ignored) {
         pthread_mutex_unlock(&game.general_lock);
         
         sem_post(game.print_map_invoker);
-        usleep(SECOND / 10);
+        usleep(SECOND / 4);
     }
     return NULL;
 }
