@@ -82,6 +82,10 @@ void print_field(const field_kind_t type, const int row, const int column) {
             current_character = 'A';
             current_colour = CAMPSITE_COLOUR;
             break;
+        case PLAYER:
+            current_character = 'E';
+            current_colour = PLAYER_COLOUR;
+            break;
         default:
             perror("Invalid use of print");
             return;

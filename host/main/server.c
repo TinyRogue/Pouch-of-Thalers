@@ -499,9 +499,9 @@ static bool is_player_alive(int player_number) {
 }
 
 
-static void kill_player(int player_number) {
+static void gather_player_remnants(int player_number) {
     char obituary_notice[40];
-    sprintf(obituary_notice, "Player %d is gone. Killing remnants.", player_number);
+    sprintf(obituary_notice, "Player %d is gone. Gathering remnants.", player_number);
     log_message(obituary_notice);
 
     sem_destroy(&game.player_exchange[player_number].shared_info->player_response);
@@ -517,6 +517,15 @@ static void kill_player(int player_number) {
 //TODO: implement this shiet
 static void manage_beasts_moves() {
 
+}
+
+
+static void kill_player(int index) {
+    game.player_exchange[index].server_side_info.carried_treasure = 0;
+    game.player_exchange[index].server_side_info.curr_x = game.player_exchange[index].server_side_info.spawn_pos_x;
+    game.player_exchange[index].server_side_info.curr_y = game.player_exchange[index].server_side_info.spawn_pos_y;
+    game.player_exchange[index].server_side_info.deaths += 1;
+    game.player_exchange[index].server_side_info.is_slowed_down = false;
 }
 
 
@@ -564,11 +573,6 @@ static void manage_players_moves() {
 
         field_to_go = game.lbrth->lbrth[curr_pos_y + move_row_by][curr_pos_x + move_column_by];
 
-        for (int other_player = 0; other_player < MAX_PLAYERS; other_player++) {
-            if (curr_player == other_player) continue;
-            //TODO: if player doesn't colliade with other
-        }
-
         //TODO: check if beast
 
         if (field_to_go.kind == WALL) {
@@ -598,6 +602,23 @@ static void manage_players_moves() {
             host_side_info->curr_y = curr_pos_y + move_row_by;
             host_side_info->is_slowed_down = true;
         }
+
+        //* Players fight! =)
+        for (int other_player = 0; other_player < MAX_PLAYERS; other_player++) {
+            if (curr_player == other_player) continue;
+            
+            bool equal_x = curr_pos_x + move_column_by == game.player_exchange[other_player].server_side_info.curr_x;
+            bool equal_y = curr_pos_y + move_row_by == game.player_exchange[other_player].server_side_info.curr_y;
+            
+            if (equal_x && equal_y && CAMPSITE != field_to_go.kind) {
+                game.lbrth->lbrth[curr_pos_y + move_row_by][curr_pos_x + move_column_by].value = game.player_exchange[curr_player].server_side_info.carried_treasure + game.player_exchange[other_player].server_side_info.carried_treasure;
+                game.lbrth->lbrth[curr_pos_y + move_row_by][curr_pos_x + move_column_by].kind = DROPPED_TREASURE;
+                kill_player(curr_player);
+                kill_player(other_player);
+                break;
+            }
+        }
+
     }
 }
 
@@ -628,6 +649,18 @@ static void update_shared_info() {
                 game.player_exchange[curr_player].shared_info->player_sh_lbrth[row][column] = game.lbrth->lbrth[corner_y + row][corner_x + column];
             }
         }
+        
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            if (curr_player == i) continue;
+
+            int otherp_x = game.player_exchange[i].server_side_info.curr_x;
+            int otherp_y = game.player_exchange[i].server_side_info.curr_y;
+
+            if (corner_x <= otherp_x && corner_x + PLAYER_SIGHT > otherp_x && corner_y <= otherp_y && corner_y + PLAYER_SIGHT > otherp_y) {
+                game.player_exchange[curr_player].shared_info->player_sh_lbrth[otherp_y - corner_y][otherp_x - corner_x] = (field_t){.kind = PLAYER, .value = 0};
+            }
+        }
+
         sem_post(&shared_info->host_response);
     }
 }
@@ -641,7 +674,7 @@ static void* manage_movements(void *ignored) {
         for (int i = 0; i < MAX_PLAYERS; i++) {
             if (!game.player_exchange[i].server_side_info.is_slot_taken) continue;
             if (!is_player_alive(i)) {
-                kill_player(i);
+                gather_player_remnants(i);
             }
         }
 
@@ -653,7 +686,7 @@ static void* manage_movements(void *ignored) {
         pthread_mutex_unlock(&game.general_lock);
         
         sem_post(game.print_map_invoker);
-        usleep(SECOND);
+        usleep(SECOND / 10);
     }
     return NULL;
 }
@@ -738,7 +771,7 @@ bool initialise(const char* const filename) {
 static void remove_players() {
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (!game.player_exchange[i].server_side_info.is_slot_taken) continue;
-        kill_player(i);
+        gather_player_remnants(i);
     }
 }
 
@@ -757,3 +790,6 @@ void clean_up() {
     pthread_mutex_destroy(&game.general_lock);
     endwin();
 }
+
+//TODO: make unique spawns
+//TODO: create sem for joining

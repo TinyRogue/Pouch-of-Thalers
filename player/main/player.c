@@ -108,13 +108,40 @@ static bool join_the_game() {
 }
 //---------------------------------------------------------------------------------------------
 //--- Print section ---------------------------------------------------------------------------
+static int old_x[4] = {NO_PLAYER, NO_PLAYER, NO_PLAYER, NO_PLAYER};
+static int old_y[4] = {NO_PLAYER, NO_PLAYER, NO_PLAYER, NO_PLAYER};
+
+static void forget_players() { 
+    for (int i = 0; i < 4; i++) {
+        if (-1 == old_x[i]) continue;
+        if (abs(my_info->pos_x - old_x[i]) > PLAYER_SIGHT / 2 || abs(my_info->pos_y - old_y[i]) > PLAYER_SIGHT / 2) {
+            print_field(BLANK, old_y[i], old_x[i]);
+            old_x[i] = old_y[i] = NO_PLAYER;
+        }
+    }
+    
+    old_x[3] = my_info->pos_x;
+    old_y[3] = my_info->pos_y;
+}
+
+
 void print_map() {
-    int start_x = my_info->pos_x - 1;
-    int start_y = my_info->pos_y - 1;
+    int corner_x = my_info->pos_x - 1;
+    int corner_y = my_info->pos_y - 1;
 
     for (int i = 0; i < PLAYER_SIGHT; i++) {
         for (int j = 0; j < PLAYER_SIGHT; j++) {
-            print_field(my_info->player_sh_lbrth[i][j].kind, start_y + i, start_x + j);
+
+            if (PLAYER == my_info->player_sh_lbrth[i][j].kind) {
+                for (int x = 0; x < 3; x++) {
+                    if (old_x[x] == NO_PLAYER) {
+                        old_x[x] = j + corner_x;
+                        old_y[x] = i + corner_y;
+                    }
+                }
+            }
+
+            print_field(my_info->player_sh_lbrth[i][j].kind, corner_y + i, corner_x + j);
         }
     }
 }
@@ -154,11 +181,12 @@ void *print_map_on_event(void *ignored) {
             printf("Error: %s %s %d\n", strerror(errno), __FILE__, __LINE__);
             return NULL;
         }
-
+        
         pthread_mutex_lock(&printer_mut);
         print_map();
         print_info();
         print_player(my_info->player_number, my_info->pos_y, my_info->pos_x);
+        forget_players();
         refresh();
         pthread_mutex_unlock(&printer_mut);
     }

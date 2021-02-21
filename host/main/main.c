@@ -3,7 +3,7 @@
 
 int main(void) {
     printf("Entering...");
-    if (!initialise("maps/classic-map.txt")) {
+    if (!initialise("maps/blank.txt")) {
         printf("Initializing failed!\n");
         exit(errno);
     }

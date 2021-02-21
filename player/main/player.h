@@ -16,6 +16,8 @@
 #include "../../utils/shared_data.h"
 #include "../../utils/view/view.h"
 
+#define NO_PLAYER -1
+
 typedef struct {
     int pid;
     int host_pid;
