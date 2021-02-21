@@ -380,11 +380,11 @@ static void print_players() {
             sprintf(coins, "%04d", game.player_exchange[i].server_side_info.brought_treasure);
             print(coins, 9, x_pos);
         } else {
-            print ("-----", 3, x_pos);
+            print ("----", 3, x_pos);
             print ("--/--", 4, x_pos);
-            print ("-", 5, x_pos + 2);
-            print("-", 8, x_pos + 2);
-            print("-", 9, x_pos + 2);
+            print ("---", 5, x_pos);
+            print("----", 8, x_pos);
+            print("----", 9, x_pos);
         }
     }
 }
