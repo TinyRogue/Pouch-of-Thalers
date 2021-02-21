@@ -26,6 +26,12 @@
 #define ADDITIONAL_INFO_SIZE 100
 #define SECOND 1000000
 
+#define RIGHT 1
+#define BEAST_IN_MIDDLE 0
+#define LEFT -1
+#define BEAST_ABOVE -1
+#define BEAST_BELOW 1
+
 typedef struct {
     struct server_side_info_t {
         int spawn_pos_x;

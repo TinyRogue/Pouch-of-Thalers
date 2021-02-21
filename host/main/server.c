@@ -477,15 +477,137 @@ static bool open_beast_shared_sems(struct single_beast_t *beast_ptr) {
     return true;
 }
 
+//* It's obnoxious one, but time is short
+bool was_hunting_successful(shared_info_t *shared_info) {
+    if (!shared_info) return false;   
+    
+    int player_x, player_y;
+    int x_distance, y_distance;
+
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        player_x = game.player_exchange[i].server_side_info.curr_x;
+        player_y = game.player_exchange[i].server_side_info.curr_y;
+
+        x_distance = shared_info->pos_x - player_x;
+        y_distance = shared_info->pos_y - player_y;
+
+        //* Player is not even in beast sight, no purpose in checking sight
+        if (!(abs(x_distance) <= PLAYER_SIGHT / 2 && abs(y_distance) <= PLAYER_SIGHT / 2)) {
+            continue;
+        }
+        
+        //* For one field distance
+        if (y_distance == BEAST_BELOW) {
+
+            switch (x_distance) {
+            case LEFT:
+                if (game.lbrth->lbrth[shared_info->pos_y - 1][shared_info->pos_x].kind == WALL) {
+                    shared_info->dir = EAST;
+                    return true;
+                }
+                shared_info->dir = NORTH;
+                return true;
+            case BEAST_IN_MIDDLE:
+                shared_info->dir = NORTH;
+                return true;
+            case RIGHT:
+                if (game.lbrth->lbrth[shared_info->pos_y - 1][shared_info->pos_x].kind == WALL) {
+                    shared_info->dir = WEST;
+                    return true;
+                }
+                shared_info->dir = NORTH;
+                return true;
+            }
+
+        } else if (y_distance == BEAST_ABOVE) {
+
+            switch (x_distance) {
+            case LEFT:
+                if (game.lbrth->lbrth[shared_info->pos_y + 1][shared_info->pos_x].kind == WALL) {
+                    shared_info->dir = EAST;
+                    return true;
+                }
+                shared_info->dir = SOUTH;
+                return true;
+            case BEAST_IN_MIDDLE:
+                shared_info->dir = SOUTH;
+                return true;
+            case RIGHT:
+                if (game.lbrth->lbrth[shared_info->pos_y + 1][shared_info->pos_x].kind == WALL) {
+                    shared_info->dir = WEST;
+                    return true;
+                }
+                shared_info->dir = SOUTH;
+                return true;
+            }
+
+        } else if (y_distance == BEAST_IN_MIDDLE) {
+
+            switch (x_distance) {
+            case LEFT:
+                shared_info->dir = EAST;
+                return true;
+            case RIGHT:
+                shared_info->dir = WEST;
+                return true;
+            }
+        }
+
+        //* Two fields or more
+        if (y_distance == BEAST_IN_MIDDLE) {
+            if (x_distance > RIGHT) {
+                if (game.lbrth->lbrth[shared_info->pos_y][shared_info->pos_x + 1].kind != WALL) {
+                    shared_info->dir = WEST;
+                    return true;
+                }
+                return false;
+            } else if (x_distance < LEFT) {
+                if (game.lbrth->lbrth[shared_info->pos_y][shared_info->pos_x - 1].kind != WALL) {
+                    shared_info->dir = EAST;
+                    return true;
+                }
+                return false;
+            }
+        } else if (x_distance == BEAST_IN_MIDDLE) {
+            if (y_distance < BEAST_ABOVE) {
+                if (game.lbrth->lbrth[shared_info->pos_y + 1][shared_info->pos_x].kind != WALL) {
+                    shared_info->dir = SOUTH;
+                    return true;
+                }
+                return false;
+            } else if (y_distance > BEAST_BELOW) {
+                if (game.lbrth->lbrth[shared_info->pos_y - 1][shared_info->pos_x].kind != WALL) {
+                    shared_info->dir = NORTH;
+                    return true;
+                }
+                return false;
+            }
+        }
+
+    }
+    return false;
+}
+
+
+static void move_arbitrarily(shared_info_t *shared_info) {
+    if (!shared_info) return;
+    shared_info->dir = NORTH; //TODO: randomize
+}
+
 
 static void* run_beast(void *beast_ptr) {
     struct single_beast_t *beast = (struct single_beast_t*)beast_ptr;
 
     while (true) {
-        //TODO: rand move and hunt
-        beast->shared_info->dir = EAST;
+
+        if (!was_hunting_successful(beast->shared_info)) {
+            move_arbitrarily(beast->shared_info);
+        }
+
         sem_post(&beast->shared_info->player_response);
-        sem_wait(&beast->shared_info->host_response);
+        if (-1 == sem_wait(&beast->shared_info->host_response)) {
+            return NULL;
+        }
     }
     return NULL;
 }
@@ -500,7 +622,7 @@ static bool spawn_beast() {
     }
 
     struct single_beast_t **check_ptr = NULL;
-    check_ptr = realloc(game.beasts.beasts_ptr, game.beasts.beasts_amount * (sizeof(struct single_beast_t**) + 1));
+    check_ptr = realloc(game.beasts.beasts_ptr, (game.beasts.beasts_amount + 1) * (sizeof(struct single_beast_t**)));
     if (!check_ptr) {
         log_message("Could not expand beast array");
         return false;
@@ -685,13 +807,6 @@ static void manage_beasts_moves() {
 
         field_to_go = game.lbrth->lbrth[beast_info->pos_y + move_row_by][beast_info->pos_x + move_column_by];
 
-        if (WALL == field_to_go.kind) {
-            break;
-        } else {
-            beast_info->pos_x = beast_info->pos_x + move_column_by;
-            beast_info->pos_y = beast_info->pos_y + move_row_by;
-        }
-
         //* Fight beasts with players!
         for (int player = 0; player < MAX_PLAYERS; player++) {
             
@@ -702,8 +817,15 @@ static void manage_beasts_moves() {
                 game.lbrth->lbrth[beast_info->pos_y + move_row_by][beast_info->pos_x + move_column_by].value = game.player_exchange[player].server_side_info.carried_treasure + game.player_exchange[player].server_side_info.carried_treasure;
                 game.lbrth->lbrth[beast_info->pos_y + move_row_by][beast_info->pos_x + move_column_by].kind = DROPPED_TREASURE;
                 kill_player(player);
-                break;
             }
+        }
+
+        if (WALL == field_to_go.kind) {
+            sem_post(&beast_info->host_response);
+            continue;
+        } else {
+            beast_info->pos_x = beast_info->pos_x + move_column_by;
+            beast_info->pos_y = beast_info->pos_y + move_row_by;
         }
 
         sem_post(&beast_info->host_response);
@@ -755,8 +877,6 @@ static void manage_players_moves() {
 
         field_to_go = game.lbrth->lbrth[curr_pos_y + move_row_by][curr_pos_x + move_column_by];
 
-        //TODO: check if beast
-
         if (field_to_go.kind == WALL) {
             break;
         } else if (field_to_go.kind == BLANK) {
@@ -801,6 +921,19 @@ static void manage_players_moves() {
             }
         }
 
+        for (size_t beast_num = 0; beast_num < game.beasts.beasts_amount; beast_num++) {
+            
+            bool equal_x = curr_pos_x + move_column_by == game.beasts.beasts_ptr[beast_num]->shared_info->pos_x;
+            bool equal_y = curr_pos_y + move_row_by == game.beasts.beasts_ptr[beast_num]->shared_info->pos_y;
+            
+            if (equal_x && equal_y && CAMPSITE != field_to_go.kind) {
+                game.lbrth->lbrth[curr_pos_y + move_row_by][curr_pos_x + move_column_by].value = game.player_exchange[curr_player].server_side_info.carried_treasure;
+                game.lbrth->lbrth[curr_pos_y + move_row_by][curr_pos_x + move_column_by].kind = DROPPED_TREASURE;
+                kill_player(curr_player);
+                break;
+            }
+        }
+
     }
 }
 
@@ -832,6 +965,7 @@ static void update_shared_info() {
             }
         }
         
+        // * Fill map with players if in sight
         for (int i = 0; i < MAX_PLAYERS; i++) {
             if (curr_player == i) continue;
 
@@ -840,6 +974,17 @@ static void update_shared_info() {
 
             if (corner_x <= otherp_x && corner_x + PLAYER_SIGHT > otherp_x && corner_y <= otherp_y && corner_y + PLAYER_SIGHT > otherp_y) {
                 game.player_exchange[curr_player].shared_info->player_sh_lbrth[otherp_y - corner_y][otherp_x - corner_x] = (field_t){.kind = PLAYER, .value = 0};
+            }
+        }
+
+        // * Fill map with beasts if in sight
+        for (size_t i = 0; i < game.beasts.beasts_amount; i++) {
+
+            int beast_x = game.beasts.beasts_ptr[i]->shared_info->pos_x;
+            int beast_y = game.beasts.beasts_ptr[i]->shared_info->pos_y;
+
+            if (corner_x <= beast_x && corner_x + PLAYER_SIGHT > beast_x && corner_y <= beast_y && corner_y + PLAYER_SIGHT > beast_y) {
+                game.player_exchange[curr_player].shared_info->player_sh_lbrth[beast_y - corner_y][beast_x - corner_x] = (field_t){.kind = BEAST, .value = 0};
             }
         }
 
@@ -977,3 +1122,4 @@ void clean_up() {
 //TODO: make unique spawns
 //TODO: create sem for joining
 //TODO: check killing at player display
+//TODO: close threads

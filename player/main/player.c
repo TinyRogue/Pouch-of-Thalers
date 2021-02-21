@@ -110,10 +110,12 @@ static bool join_the_game() {
 //--- Print section ---------------------------------------------------------------------------
 static int old_x[4] = {NO_PLAYER, NO_PLAYER, NO_PLAYER, NO_PLAYER};
 static int old_y[4] = {NO_PLAYER, NO_PLAYER, NO_PLAYER, NO_PLAYER};
+static int old_beast_x[PLAYER_SIGHT * PLAYER_SIGHT + 1];
+static int old_beast_y[PLAYER_SIGHT * PLAYER_SIGHT + 1];
 
 static void forget_players() { 
     for (int i = 0; i < 4; i++) {
-        if (-1 == old_x[i]) continue;
+        if (NO_PLAYER == old_x[i]) continue;
         if (abs(my_info->pos_x - old_x[i]) > PLAYER_SIGHT / 2 || abs(my_info->pos_y - old_y[i]) > PLAYER_SIGHT / 2) {
             print_field(BLANK, old_y[i], old_x[i]);
             old_x[i] = old_y[i] = NO_PLAYER;
@@ -125,6 +127,41 @@ static void forget_players() {
 }
 
 
+static void forget_beasts() {
+    for (int i = 0; i < PLAYER_SIGHT * PLAYER_SIGHT; i++) {
+        if (NO_BEAST == old_beast_x[i]) continue;
+        if (abs(my_info->pos_x - old_beast_x[i]) > PLAYER_SIGHT / 2 || abs(my_info->pos_y - old_beast_y[i]) > PLAYER_SIGHT / 2) {
+            print_field(BLANK, old_beast_y[i], old_beast_x[i]);
+            old_beast_x[i] = old_beast_y[i] = NO_PLAYER;
+        }
+    }
+    
+    old_beast_x[PLAYER_SIGHT * PLAYER_SIGHT] = my_info->pos_x;
+    old_beast_y[PLAYER_SIGHT * PLAYER_SIGHT] = my_info->pos_y;
+}
+
+
+static void fill_last_seen_pos_of(field_kind_t kind, int row, int column, int corner_y, int corner_x) {
+    if (BEAST == kind) {
+        for (int x = 0; x < PLAYER_SIGHT * PLAYER_SIGHT; x++) {
+            if (old_beast_x[x] == NO_BEAST) {
+                old_beast_x[x] = column + corner_x;
+                old_beast_y[x] = row + corner_y;
+                break;
+            }
+        }
+    } else if (PLAYER == kind) {
+        for (int x = 0; x < 3; x++) {
+            if (old_x[x] == NO_PLAYER) {
+                old_x[x] = column + corner_x;
+                old_y[x] = row + corner_y;
+                break;
+            }
+        }
+    }
+}
+
+
 void print_map() {
     int corner_x = my_info->pos_x - PLAYER_SIGHT / 2;
     int corner_y = my_info->pos_y - PLAYER_SIGHT / 2;
@@ -133,12 +170,9 @@ void print_map() {
         for (int j = 0; j < PLAYER_SIGHT; j++) {
 
             if (PLAYER == my_info->player_sh_lbrth[i][j].kind) {
-                for (int x = 0; x < 3; x++) {
-                    if (old_x[x] == NO_PLAYER) {
-                        old_x[x] = j + corner_x;
-                        old_y[x] = i + corner_y;
-                    }
-                }
+                fill_last_seen_pos_of(PLAYER, i, j, corner_y, corner_x);
+            } else if (BEAST == my_info->player_sh_lbrth[i][j].kind) {
+                fill_last_seen_pos_of(BEAST, i, j, corner_y, corner_x);
             }
 
             print_field(my_info->player_sh_lbrth[i][j].kind, corner_y + i, corner_x + j);
@@ -186,6 +220,7 @@ void *print_map_on_event(void *ignored) {
         print_info();
         print_player(my_info->player_number, my_info->pos_y, my_info->pos_x);
         forget_players();
+        forget_beasts();
         refresh();
         pthread_mutex_unlock(&printer_mut);
     }

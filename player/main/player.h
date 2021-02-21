@@ -17,6 +17,7 @@
 #include "../../utils/view/view.h"
 
 #define NO_PLAYER -1
+#define NO_BEAST 0
 
 typedef struct {
     int pid;

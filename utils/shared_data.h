@@ -11,7 +11,7 @@
 #define MAX_MAP_WIDTH 128
 #define MAX_MAP_HEIGHT 28
 
-typedef enum {BLANK, WALL, BUSH, COIN, TREASURE, LARGE_TREASURE, DROPPED_TREASURE, CAMPSITE, SPAWN, PLAYER} field_kind_t;
+typedef enum {BLANK, WALL, BUSH, COIN, TREASURE, LARGE_TREASURE, DROPPED_TREASURE, CAMPSITE, SPAWN, PLAYER, BEAST} field_kind_t;
 typedef enum {CPU, HUMAN} player_kind_t;
 typedef enum {EAST, NORTH, WEST, SOUTH} dir_t;
 typedef enum {WAITING_FOR_PLAYER, REJECTED, PENDING, ACCEPTED} join_approval_t;
